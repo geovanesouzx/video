@@ -3,348 +3,326 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Videochamada WebRTC - Estilo Discord</title>
+    <title>Clone do Discord - Videochamada</title>
     
-    <!-- Tailwind CSS para estilização rápida e moderna -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     
-    <!-- Biblioteca PeerJS para simplificar o WebRTC -->
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    
-    <!-- Ícones (Heroicons) -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-    <style>
-        /* Estilo para o vídeo, garantindo que ele se ajuste ao container */
-        video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transform: scaleX(-1); /* Espelha o vídeo local para uma experiência natural */
-        }
-        .video-wrapper {
-            position: relative;
-            overflow: hidden;
-            border-radius: 0.5rem;
-            background-color: #202225;
-        }
-        .user-name {
-            position: absolute;
-            bottom: 8px;
-            left: 8px;
-            background-color: rgba(0, 0, 0, 0.5);
-            color: white;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 0.875rem;
-        }
-        /* Animação de carregamento */
-        .loader {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #3498db;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-    </style>
-</head>
-<body class="bg-gray-800 text-white font-sans antialiased">
-
-    <!-- Tela de Entrada / Lobby -->
-    <div id="lobby" class="flex flex-col items-center justify-center h-screen bg-gray-700 p-4">
-        <h1 class="text-4xl font-bold mb-2">Videochamada Web</h1>
-        <p class="text-gray-400 mb-8">Conecte-se com seus amigos em tempo real.</p>
-        
-        <div class="bg-gray-800 p-8 rounded-lg shadow-2xl w-full max-w-md">
-            <div class="mb-4">
-                <label for="username" class="block text-sm font-medium text-gray-300 mb-2">Seu Nome</label>
-                <input type="text" id="username" class="w-full bg-gray-900 border border-gray-700 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Digite seu nome...">
-            </div>
-            <div class="mb-6">
-                <label for="room-id" class="block text-sm font-medium text-gray-300 mb-2">ID da Sala (opcional)</label>
-                <input type="text" id="room-id" class="w-full bg-gray-900 border border-gray-700 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Cole o ID para entrar em uma sala">
-            </div>
-            <button id="join-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition duration-300">
-                Criar Sala / Entrar
-            </button>
-        </div>
-        <p class="mt-8 text-sm text-gray-500">Desenvolvido com PeerJS e WebRTC.</p>
-    </div>
-
-    <!-- Tela da Chamada -->
-    <div id="call-screen" class="hidden h-screen flex flex-col">
-        <!-- Grade de Vídeos -->
-        <div id="video-grid" class="flex-grow p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            <!-- Vídeos dos participantes serão adicionados aqui -->
-        </div>
-
-        <!-- Barra de Informações e Controles -->
-        <div class="bg-gray-900 p-4 flex items-center justify-between">
-            <div class="flex items-center gap-4">
-                 <p class="text-sm text-gray-400">ID da Sala: <strong id="room-id-display" class="text-white"></strong></p>
-                 <button id="copy-room-id" class="bg-gray-700 hover:bg-gray-600 text-xs px-2 py-1 rounded-md transition">
-                    <i class="fas fa-copy mr-1"></i> Copiar ID
-                 </button>
-            </div>
-           
-            <div class="flex items-center gap-4">
-                <button id="toggle-mic" class="bg-gray-700 hover:bg-gray-600 w-12 h-12 rounded-full flex items-center justify-center text-xl transition">
-                    <i class="fas fa-microphone"></i>
-                </button>
-                <button id="toggle-video" class="bg-gray-700 hover:bg-gray-600 w-12 h-12 rounded-full flex items-center justify-center text-xl transition">
-                    <i class="fas fa-video"></i>
-                </button>
-                <button id="leave-btn" class="bg-red-600 hover:bg-red-700 w-16 h-12 rounded-full flex items-center justify-center text-xl transition">
-                    <i class="fas fa-phone-slash"></i>
-                </button>
-            </div>
-            <div class="w-48"></div> <!-- Espaçador para centralizar os controles -->
-        </div>
-    </div>
-    
-    <!-- Modal de Notificação -->
-    <div id="notification" class="hidden fixed top-5 right-5 bg-green-500 text-white py-2 px-4 rounded-lg shadow-lg transition-opacity duration-300">
-        ID da sala copiado!
-    </div>
-
-
     <script>
-        // --- ELEMENTOS DA UI ---
-        const lobby = document.getElementById('lobby');
-        const callScreen = document.getElementById('call-screen');
-        const joinBtn = document.getElementById('join-btn');
-        const usernameInput = document.getElementById('username');
-        const roomIdInput = document.getElementById('room-id');
-        const videoGrid = document.getElementById('video-grid');
-        const toggleMicBtn = document.getElementById('toggle-mic');
-        const toggleVideoBtn = document.getElementById('toggle-video');
-        const leaveBtn = document.getElementById('leave-btn');
-        const roomIdDisplay = document.getElementById('room-id-display');
-        const copyRoomIdBtn = document.getElementById('copy-room-id');
-        const notification = document.getElementById('notification');
-
-        // --- VARIÁVEIS GLOBAIS ---
-        let peer;
-        let myStream;
-        let myPeerId;
-        let currentUsername = 'Anônimo';
-        const peers = {}; // Armazena as conexões ativas
-
-        // --- LÓGICA PRINCIPAL ---
-
-        joinBtn.addEventListener('click', async () => {
-            currentUsername = usernameInput.value || 'Anônimo';
-            const roomId = roomIdInput.value;
-
-            // Mostrar um loader enquanto a câmera é acessada
-            joinBtn.innerHTML = '<div class="loader mx-auto"></div>';
-            joinBtn.disabled = true;
-
-            try {
-                // 1. Obter acesso à câmera e microfone do usuário
-                myStream = await navigator.mediaDevices.getUserMedia({
-                    video: true,
-                    audio: true
-                });
-
-                // Transição para a tela de chamada
-                lobby.classList.add('hidden');
-                callScreen.classList.remove('hidden');
-
-                // Adiciona o vídeo local à grade
-                addVideoStream(myStream, currentUsername, true);
-
-                // 2. Inicializar o PeerJS
-                // Se um ID de sala for fornecido, tentamos nos conectar a ele.
-                // Se não, o PeerJS gera um ID único para nós (criando uma nova sala).
-                peer = roomId ? new Peer() : new Peer({
-                   // Para melhor confiabilidade, pode-se configurar servidores STUN/TURN aqui
-                   // Mas o PeerJS fornece um que funciona para a maioria dos casos.
-                });
-
-                peer.on('open', (id) => {
-                    myPeerId = id;
-                    const finalRoomId = roomId || myPeerId;
-                    roomIdDisplay.textContent = finalRoomId;
-                    
-                    // Se entramos em uma sala existente, ligamos para o dono da sala (que tem o ID da sala)
-                    if (roomId) {
-                        connectToNewUser(roomId, myStream);
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'discord-dark': '#202225',
+                        'discord-primary': '#2f3136',
+                        'discord-secondary': '#36393f',
+                        'discord-blurple': '#5865f2',
+                        'discord-text': '#dcddde',
+                        'discord-text-muted': '#72767d',
+                        'discord-header': '#b9bbbe',
+                        'discord-green': '#3ba55d',
+                        'discord-red': '#ed4245',
                     }
-                    
-                    // Avisa ao servidor (simulado) que um novo usuário se conectou
-                    // Em um app real, isso seria feito via WebSocket para notificar todos na sala.
-                    // Aqui, a conexão é feita diretamente.
-                });
-
-                // 3. Lidar com chamadas recebidas
-                peer.on('call', (call) => {
-                    // Atende a chamada, enviando nosso stream
-                    call.answer(myStream);
-
-                    // Quando recebemos o stream do outro usuário
-                    call.on('stream', (userVideoStream) => {
-                        // Evita adicionar vídeos duplicados
-                        if (peers[call.peer]) return;
-                        
-                        const remoteUsername = call.metadata?.username || 'Convidado';
-                        addVideoStream(userVideoStream, remoteUsername);
-                        peers[call.peer] = call;
-                    });
-
-                    call.on('close', () => {
-                        removeVideoStream(call.peer);
-                    });
-                     
-                    call.on('error', (err) => {
-                        console.error('Erro na chamada peer:', err);
-                        removeVideoStream(call.peer);
-                    });
-                });
-
-            } catch (err) {
-                console.error('Falha ao obter mídia local', err);
-                alert('Não foi possível acessar sua câmera e microfone. Verifique as permissões do navegador.');
-                joinBtn.innerHTML = 'Criar Sala / Entrar';
-                joinBtn.disabled = false;
-            }
-        });
-
-        // Função para se conectar a um novo usuário
-        function connectToNewUser(userId, stream) {
-            const call = peer.call(userId, stream, {
-                metadata: { username: currentUsername }
-            });
-            
-            call.on('stream', (userVideoStream) => {
-                 if (peers[call.peer]) return;
-                 const remoteUsername = call.metadata?.username || 'Convidado';
-                 addVideoStream(userVideoStream, remoteUsername, false, call.peer);
-                 peers[call.peer] = call;
-            });
-
-            call.on('close', () => {
-                removeVideoStream(call.peer);
-            });
-            
-            call.on('error', (err) => {
-                console.error('Erro ao ligar para peer:', err);
-                removeVideoStream(call.peer);
-            });
-        }
-
-        // Função para adicionar um stream de vídeo à grade
-        function addVideoStream(stream, username, isLocal = false, peerId = null) {
-            const videoWrapper = document.createElement('div');
-            videoWrapper.classList.add('video-wrapper');
-            if (peerId) {
-                videoWrapper.setAttribute('data-peer-id', peerId);
-            }
-
-            const video = document.createElement('video');
-            video.srcObject = stream;
-            video.addEventListener('loadedmetadata', () => {
-                video.play();
-            });
-
-            if (isLocal) {
-                video.muted = true; // Silencia o próprio vídeo para evitar eco
-            } else {
-                video.style.transform = 'scaleX(1)'; // Não espelha o vídeo dos outros
-            }
-
-            const nameTag = document.createElement('div');
-            nameTag.classList.add('user-name');
-            nameTag.textContent = username + (isLocal ? ' (Você)' : '');
-
-            videoWrapper.append(video, nameTag);
-            videoGrid.append(videoWrapper);
-            updateGridLayout();
-        }
-        
-        // Função para remover um stream de vídeo
-        function removeVideoStream(peerId) {
-            const videoWrapper = document.querySelector(`.video-wrapper[data-peer-id="${peerId}"]`);
-            if (videoWrapper) {
-                videoWrapper.remove();
-                delete peers[peerId];
-                updateGridLayout();
-            }
-        }
-        
-        // Função para ajustar o layout da grade dinamicamente
-        function updateGridLayout() {
-            const count = videoGrid.children.length;
-            if (count <= 2) {
-                videoGrid.className = 'flex-grow p-4 grid grid-cols-1 sm:grid-cols-2 gap-4';
-            } else if (count <= 4) {
-                videoGrid.className = 'flex-grow p-4 grid grid-cols-2 gap-4';
-            } else if (count <= 9) {
-                videoGrid.className = 'flex-grow p-4 grid grid-cols-3 gap-4';
-            } else {
-                videoGrid.className = 'flex-grow p-4 grid grid-cols-4 gap-4';
-            }
-        }
-
-        // --- CONTROLES DA CHAMADA ---
-
-        toggleMicBtn.addEventListener('click', () => {
-            const audioTrack = myStream.getAudioTracks()[0];
-            const icon = toggleMicBtn.querySelector('i');
-            if (audioTrack.enabled) {
-                audioTrack.enabled = false;
-                icon.className = 'fas fa-microphone-slash';
-                toggleMicBtn.classList.add('bg-red-600');
-            } else {
-                audioTrack.enabled = true;
-                icon.className = 'fas fa-microphone';
-                toggleMicBtn.classList.remove('bg-red-600');
-            }
-        });
-
-        toggleVideoBtn.addEventListener('click', () => {
-            const videoTrack = myStream.getVideoTracks()[0];
-            const icon = toggleVideoBtn.querySelector('i');
-            if (videoTrack.enabled) {
-                videoTrack.enabled = false;
-                icon.className = 'fas fa-video-slash';
-                toggleVideoBtn.classList.add('bg-red-600');
-            } else {
-                videoTrack.enabled = true;
-                icon.className = 'fas fa-video';
-                toggleVideoBtn.classList.remove('bg-red-600');
-            }
-        });
-
-        leaveBtn.addEventListener('click', () => {
-            // Fecha todas as conexões
-            for (let peerId in peers) {
-                if (peers[peerId]) {
-                    peers[peerId].close();
                 }
             }
-            // Destrói o peer local
-            if (peer) {
-                peer.destroy();
+        }
+    </script>
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #2f3136; }
+        ::-webkit-scrollbar-thumb { background: #202225; border-radius: 4px; }
+        .video-container { position: relative; width: 100%; padding-top: 56.25%; background-color: #202225; border-radius: 8px; overflow: hidden; }
+        .video-container video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+        .status-banner { transition: all 0.3s ease-in-out; }
+        #app, #login-screen { display: none; } /* Esconde as telas por padrão */
+        .form-field-hidden { display: none; }
+    </style>
+</head>
+<body class="bg-discord-secondary text-discord-text h-screen antialiased">
+
+    <!-- TELA DE LOGIN -->
+    <div id="login-screen" class="w-full h-full flex items-center justify-center bg-discord-secondary p-4">
+        <div class="w-full max-w-md bg-discord-primary p-8 rounded-lg shadow-lg">
+            <h2 id="form-title" class="text-2xl font-bold text-white text-center mb-2">Bem-vindo(a) de volta!</h2>
+            <p id="form-subtitle" class="text-center text-discord-header mb-6">Estamos muito animados em te ver novamente!</p>
+            
+            <div id="auth-error" class="text-discord-red text-sm mb-4 text-center font-semibold"></div>
+            <div id="auth-success" class="text-discord-green text-sm mb-4 text-center font-semibold"></div>
+
+            <form id="login-form">
+                <div id="username-field" class="mb-4 form-field-hidden">
+                    <label for="username" class="text-xs font-bold text-discord-header uppercase">Nome de Usuário</label>
+                    <input type="text" id="username" class="w-full bg-discord-dark border border-black/20 rounded-md p-2 mt-1 text-white focus:outline-none focus:ring-2 focus:ring-discord-blurple" minlength="3" maxlength="20">
+                </div>
+                <div class="mb-4">
+                    <label for="email" class="text-xs font-bold text-discord-header uppercase">Email</label>
+                    <input type="email" id="email" required class="w-full bg-discord-dark border border-black/20 rounded-md p-2 mt-1 text-white focus:outline-none focus:ring-2 focus:ring-discord-blurple">
+                </div>
+                <div class="mb-6">
+                    <label for="password" class="text-xs font-bold text-discord-header uppercase">Senha</label>
+                    <input type="password" id="password" required class="w-full bg-discord-dark border border-black/20 rounded-md p-2 mt-1 text-white focus:outline-none focus:ring-2 focus:ring-discord-blurple">
+                </div>
+                <button type="submit" id="submit-button" class="w-full bg-discord-blurple hover:bg-discord-blurple/80 text-white font-bold py-2 px-4 rounded-md transition">Entrar</button>
+            </form>
+            <p class="text-xs text-discord-text-muted mt-4 text-center">
+                <span id="prompt-text">Precisa de uma conta?</span>
+                <button id="toggle-form-button" class="text-discord-blurple hover:underline">Registre-se</button>
+            </p>
+        </div>
+    </div>
+
+    <!-- APP PRINCIPAL (CLONE DO DISCORD) -->
+    <div id="app" class="flex h-screen w-full">
+        <!-- Coluna 1: Servidores -->
+        <div class="bg-discord-dark p-3 space-y-2 flex-shrink-0">
+             <div class="w-12 h-12 rounded-full flex items-center justify-center cursor-pointer bg-discord-blurple">
+                <svg class="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M20.29,10.24a2.44,2.44,0,0,0-1.59-2.3,2.46,2.46,0,0,0-2.61.53,2.5,2.5,0,0,0-2.33-1.3H13.5a2.5,2.5,0,0,0-2.33,1.3,2.5,2.5,0,0,0-2.61-.53,2.44,2.44,0,0,0-1.59,2.3,2.53,2.53,0,0,0,.19,1,10.1,10.1,0,0,0-2.4,4.58A2.5,2.5,0,0,0,6.5,18h11a2.5,2.5,0,0,0,1.71-2.18,10.1,10.1,0,0,0-2.4-4.58,2.53,2.53,0,0,0,.19-1ZM9.12,14.39a1.7,1.7,0,1,1,1.7-1.7A1.7,1.7,0,0,1,9.12,14.39Zm5.76,0a1.7,1.7,0,1,1,1.7-1.7A1.7,1.7,0,0,1,14.88,14.39Z"/></svg>
+            </div>
+            <button id="logout-button" title="Sair" class="w-12 h-12 rounded-2xl flex items-center justify-center cursor-pointer bg-discord-primary hover:bg-discord-red hover:rounded-xl transition-all duration-200">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+            </button>
+        </div>
+        <!-- Coluna 2: Canais e Informações do Usuário -->
+        <div class="bg-discord-primary w-60 flex flex-col flex-shrink-0">
+            <header class="p-4 font-bold text-white shadow-md h-12 flex items-center border-b border-discord-dark">Servidor de Chamada</header>
+            <div class="flex-1 p-2 space-y-2 overflow-y-auto">
+                <div class="px-2 text-xs font-bold uppercase text-discord-text-muted">Canais de Voz</div>
+                <div class="flex items-center p-2 rounded cursor-pointer bg-discord-secondary text-white">
+                    <svg class="w-5 h-5 mr-2 text-discord-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.636 5.636a9 9 0 0112.728 0M8.464 15.536a5 5 0 010-7.072"></path></svg>
+                    <span class="font-semibold">Geral</span>
+                </div>
+            </div>
+            <footer class="p-2 bg-discord-dark/50 flex items-center justify-between">
+                <div class="flex items-center">
+                    <img id="user-avatar" src="https://placehold.co/32x32/5865f2/ffffff?text=U" alt="Avatar" class="w-8 h-8 rounded-full">
+                    <div class="ml-2">
+                        <div id="user-display-name" class="text-sm font-semibold text-white">Username</div>
+                        <div id="user-email" class="text-xs text-discord-text-muted">user@email.com</div>
+                    </div>
+                </div>
+            </footer>
+        </div>
+        <!-- Coluna 3: Conteúdo Principal (Vídeo) -->
+        <div class="flex-1 flex flex-col bg-discord-secondary">
+            <header class="flex items-center justify-between p-4 shadow-md h-12 border-b border-discord-dark">
+                <div class="flex items-center">
+                    <svg class="w-6 h-6 mr-2 text-discord-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.636 5.636a9 9 0 0112.728 0M8.464 15.536a5 5 0 010-7.072"></path></svg>
+                    <h1 class="text-white font-bold text-lg">Geral</h1>
+                </div>
+                <div id="status" class="status-banner text-sm font-semibold text-yellow-400 p-2 rounded-md bg-yellow-900/50">Aguardando conexão...</div>
+            </header>
+            <main class="flex-1 flex flex-col p-4 gap-4 overflow-y-auto">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
+                    <div class="video-container"><video id="localVideo" autoplay muted playsinline></video><div class="absolute bottom-2 left-2 bg-black/50 px-2 py-1 rounded text-sm font-semibold">Você</div></div>
+                    <div class="video-container"><video id="remoteVideo" autoplay playsinline></video><div class="absolute bottom-2 left-2 bg-black/50 px-2 py-1 rounded text-sm font-semibold">Remoto</div></div>
+                </div>
+                <div class="bg-discord-primary p-4 rounded-lg space-y-3">
+                    <h3 class="font-semibold text-lg text-white">Controle de Conexão (Manual)</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="space-y-1"><label for="offer" class="block text-sm font-medium text-discord-header">Sua Oferta</label><textarea id="offer" rows="3" class="w-full bg-discord-dark border border-black/20 rounded-md p-2 text-xs" readonly></textarea><button id="copyOfferButton" class="w-full bg-discord-secondary hover:bg-discord-secondary/80 text-white font-bold py-1 px-2 rounded-md text-sm transition">Copiar Oferta</button></div>
+                        <div class="space-y-1"><label for="answer" class="block text-sm font-medium text-discord-header">Sua Resposta</label><textarea id="answer" rows="3" class="w-full bg-discord-dark border border-black/20 rounded-md p-2 text-xs" readonly></textarea><button id="copyAnswerButton" class="w-full bg-discord-secondary hover:bg-discord-secondary/80 text-white font-bold py-1 px-2 rounded-md text-sm transition">Copiar Resposta</button></div>
+                        <div><label for="receivedOffer" class="block text-sm font-medium text-discord-header">Oferta Recebida</label><textarea id="receivedOffer" placeholder="Cole a oferta do outro usuário aqui..." rows="3" class="w-full bg-discord-dark border border-black/20 rounded-md p-2 text-xs"></textarea></div>
+                        <div><label for="receivedAnswer" class="block text-sm font-medium text-discord-header">Resposta Recebida</label><textarea id="receivedAnswer" placeholder="Cole a resposta do outro usuário aqui..." rows="3" class="w-full bg-discord-dark border border-black/20 rounded-md p-2 text-xs"></textarea></div>
+                    </div>
+                    <div class="flex flex-wrap gap-3 pt-2">
+                        <button id="startCallButton" class="bg-discord-green hover:bg-discord-green/80 text-white font-bold py-2 px-4 rounded-md transition">1. Iniciar e Criar Oferta</button>
+                        <button id="createAnswerButton" class="bg-discord-blurple hover:bg-discord-blurple/80 text-white font-bold py-2 px-4 rounded-md transition">2. Criar Resposta da Oferta</button>
+                        <button id="connectButton" class="bg-discord-secondary hover:bg-discord-secondary/80 text-white font-bold py-2 px-4 rounded-md transition">3. Adicionar Resposta e Conectar</button>
+                        <button id="disconnectButton" class="bg-discord-red hover:bg-discord-red/80 text-white font-bold py-2 px-4 rounded-md transition">Desconectar</button>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Scripts do Firebase -->
+    <script type="module">
+        // Importações do Firebase Auth e Firestore
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { 
+            getAuth, 
+            createUserWithEmailAndPassword, 
+            signInWithEmailAndPassword,
+            onAuthStateChanged,
+            signOut,
+            sendEmailVerification,
+            fetchSignInMethodsForEmail
+        } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyB98-bStjweF82UALPiw2YiwKKn1IhZASE",
+            authDomain: "videochamada11.firebaseapp.com",
+            projectId: "videochamada11",
+            storageBucket: "videochamada11.appspot.com",
+            messagingSenderId: "872635256324",
+            appId: "1:872635256324:web:12a6051efe8796730f2f51"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // --- LÓGICA DE AUTENTICAÇÃO ---
+        const loginScreen = document.getElementById('login-screen');
+        const appScreen = document.getElementById('app');
+        const loginForm = document.getElementById('login-form');
+        const usernameField = document.getElementById('username-field');
+        const usernameInput = document.getElementById('username');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const authErrorDiv = document.getElementById('auth-error');
+        const authSuccessDiv = document.getElementById('auth-success');
+        const toggleFormButton = document.getElementById('toggle-form-button');
+        const formTitle = document.getElementById('form-title');
+        const formSubtitle = document.getElementById('form-subtitle');
+        const promptText = document.getElementById('prompt-text');
+        const submitButton = document.getElementById('submit-button');
+        const logoutButton = document.getElementById('logout-button');
+        const userDisplayNameDiv = document.getElementById('user-display-name');
+        const userEmailDiv = document.getElementById('user-email');
+
+        let isLoginMode = true;
+
+        function clearAuthMessages() {
+            authErrorDiv.textContent = '';
+            authSuccessDiv.textContent = '';
+        }
+
+        toggleFormButton.addEventListener('click', () => {
+            isLoginMode = !isLoginMode;
+            clearAuthMessages();
+            loginForm.reset();
+            usernameField.classList.toggle('form-field-hidden', isLoginMode);
+            usernameInput.required = !isLoginMode;
+
+            if (isLoginMode) {
+                formTitle.textContent = 'Bem-vindo(a) de volta!';
+                formSubtitle.textContent = 'Estamos muito animados em te ver novamente!';
+                submitButton.textContent = 'Entrar';
+                promptText.textContent = 'Precisa de uma conta?';
+                toggleFormButton.textContent = 'Registre-se';
+            } else {
+                formTitle.textContent = 'Crie uma conta';
+                formSubtitle.textContent = 'É rápido e fácil!';
+                submitButton.textContent = 'Continuar';
+                promptText.textContent = 'Já tem uma conta?';
+                toggleFormButton.textContent = 'Entrar';
             }
-            // Recarrega a página para voltar ao lobby
-            window.location.reload();
-        });
-        
-        copyRoomIdBtn.addEventListener('click', () => {
-            navigator.clipboard.writeText(roomIdDisplay.textContent).then(() => {
-                notification.classList.remove('hidden');
-                setTimeout(() => {
-                    notification.classList.add('hidden');
-                }, 2000);
-            });
         });
 
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            clearAuthMessages();
+            const email = emailInput.value;
+            const password = passwordInput.value;
+
+            if (isLoginMode) {
+                // --- Lógica de Login ---
+                try {
+                    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                    if (!userCredential.user.emailVerified) {
+                        await signOut(auth);
+                        authErrorDiv.textContent = 'Seu e-mail ainda não foi verificado. Por favor, verifique sua caixa de entrada.';
+                    }
+                } catch (error) {
+                    authErrorDiv.textContent = 'E-mail ou senha inválidos.';
+                    console.error("Erro de login:", error);
+                }
+            } else {
+                // --- Lógica de Registro ---
+                const username = usernameInput.value.toLowerCase();
+                
+                try {
+                    // 1. Verificar proativamente se o e-mail já está em uso
+                    const methods = await fetchSignInMethodsForEmail(auth, email);
+                    if (methods.length > 0) {
+                        authErrorDiv.textContent = 'Este e-mail já está em uso.';
+                        return;
+                    }
+
+                    // 2. Verificar se o nome de usuário já está em uso
+                    const usernameDocRef = doc(db, "usernames", username);
+                    const usernameDoc = await getDoc(usernameDocRef);
+                    if (usernameDoc.exists()) {
+                        authErrorDiv.textContent = 'Este nome de usuário já está em uso.';
+                        return;
+                    }
+
+                    // 3. Se tudo estiver ok, criar o usuário
+                    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                    const user = userCredential.user;
+
+                    // Salva informações do usuário no Firestore
+                    await setDoc(doc(db, "users", user.uid), {
+                        username: username,
+                        email: user.email
+                    });
+                    // "Reserva" o nome de usuário
+                    await setDoc(usernameDocRef, { userId: user.uid });
+                    
+                    // Envia e-mail de verificação
+                    await sendEmailVerification(user);
+
+                    await signOut(auth); // Desloga o usuário para forçar a verificação
+                    authSuccessDiv.textContent = 'Conta criada com sucesso! Um link de verificação foi enviado para o seu e-mail.';
+
+                } catch (error) {
+                    if (error.code === 'auth/weak-password') {
+                        authErrorDiv.textContent = 'A senha deve ter pelo menos 6 caracteres.';
+                    } else {
+                        authErrorDiv.textContent = 'Ocorreu um erro ao registrar.';
+                        console.error("Erro de registro:", error);
+                    }
+                }
+            }
+        });
+        
+        logoutButton.addEventListener('click', () => {
+            signOut(auth);
+        });
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user && user.emailVerified) {
+                const userDocRef = doc(db, "users", user.uid);
+                const userDoc = await getDoc(userDocRef);
+                if (userDoc.exists()) {
+                    userDisplayNameDiv.textContent = userDoc.data().username;
+                } else {
+                    userDisplayNameDiv.textContent = "Usuário";
+                }
+                userEmailDiv.textContent = user.email;
+
+                loginScreen.style.display = 'none';
+                appScreen.style.display = 'flex';
+            } else {
+                loginScreen.style.display = 'flex';
+                appScreen.style.display = 'none';
+                handleDisconnect();
+            }
+        });
+
+        // --- LÓGICA WEBRTC (CÓDIGO DA VIDEOCHAMADA - SEM ALTERAÇÕES) ---
+        const localVideo = document.getElementById('localVideo'), remoteVideo = document.getElementById('remoteVideo');
+        const startCallButton = document.getElementById('startCallButton'), createAnswerButton = document.getElementById('createAnswerButton'), connectButton = document.getElementById('connectButton'), disconnectButton = document.getElementById('disconnectButton');
+        const statusDiv = document.getElementById('status');
+        const offerTextarea = document.getElementById('offer'), answerTextarea = document.getElementById('answer'), receivedOfferTextarea = document.getElementById('receivedOffer'), receivedAnswerTextarea = document.getElementById('receivedAnswer');
+        const copyOfferButton = document.getElementById('copyOfferButton'), copyAnswerButton = document.getElementById('copyAnswerButton');
+        let localStream, peerConnection;
+        const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+        function setStatus(message, type = 'info') { statusDiv.textContent = message; statusDiv.className = 'status-banner text-sm font-semibold p-2 rounded-md '; if (type === 'info') statusDiv.classList.add('text-yellow-400', 'bg-yellow-900/50'); else if (type === 'success') statusDiv.classList.add('text-green-300', 'bg-green-900/50'); else if (type === 'error') statusDiv.classList.add('text-red-300', 'bg-red-900/50'); }
+        function copyToClipboard(elementId, type) { const textarea = document.getElementById(elementId); if (!textarea.value) { setStatus(`Não há ${type} para copiar.`, 'error'); return; } textarea.select(); try { document.execCommand('copy'); setStatus(`${type.charAt(0).toUpperCase() + type.slice(1)} copiada!`, 'success'); } catch (err) { setStatus(`Falha ao copiar ${type}.`, 'error'); } }
+        async function startMedia() { if (localStream) return true; try { localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true }); localVideo.srcObject = localStream; return true; } catch (error) { setStatus('ERRO: Permissão de câmera/microfone negada.', 'error'); return false; } }
+        function createPeerConnection() { if (peerConnection) peerConnection.close(); peerConnection = new RTCPeerConnection(configuration); localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream)); peerConnection.ontrack = event => { remoteVideo.srcObject = event.streams[0]; }; peerConnection.onicecandidate = event => { if (event.candidate) { if(offerTextarea.value) offerTextarea.value = JSON.stringify(peerConnection.localDescription); if(answerTextarea.value) answerTextarea.value = JSON.stringify(peerConnection.localDescription); } }; peerConnection.onconnectionstatechange = () => { const state = peerConnection.connectionState; if (state === "connecting") setStatus("Conectando...", "info"); else if (state === "connected") setStatus("Conectado com sucesso!", "success"); else if (["failed", "disconnected", "closed"].includes(state)) { setStatus(`Conexão ${state}.`, 'error'); handleDisconnect(); } }; }
+        async function startCallAndCreateOffer() { if (!await startMedia()) return; createPeerConnection(); try { const offer = await peerConnection.createOffer(); await peerConnection.setLocalDescription(offer); offerTextarea.value = JSON.stringify(peerConnection.localDescription); setStatus("Oferta criada. Copie e envie.", "info"); } catch (error) { setStatus("Falha ao criar oferta.", "error"); } }
+        async function createAnswerForOffer() { const offerValue = receivedOfferTextarea.value; if (!offerValue) return setStatus('ERRO: Cole a oferta recebida primeiro!', 'error'); if (!await startMedia()) return; createPeerConnection(); try { await peerConnection.setRemoteDescription(new RTCSessionDescription(JSON.parse(offerValue))); const answer = await peerConnection.createAnswer(); await peerConnection.setLocalDescription(answer); answerTextarea.value = JSON.stringify(peerConnection.localDescription); setStatus("Resposta criada. Copie e envie de volta.", "info"); } catch (error) { setStatus("ERRO: Formato da oferta inválido.", "error"); } }
+        async function addAnswerAndConnect() { const answerValue = receivedAnswerTextarea.value; if (!answerValue) return setStatus('ERRO: Cole a resposta recebida primeiro!', 'error'); if (!peerConnection || !peerConnection.localDescription) return setStatus('ERRO: Crie uma oferta primeiro (Passo 1).', 'error'); try { if (!peerConnection.currentRemoteDescription) { await peerConnection.setRemoteDescription(new RTCSessionDescription(JSON.parse(answerValue))); } } catch (error) { setStatus("ERRO: Formato da resposta inválido.", "error"); } }
+        function handleDisconnect() { if (peerConnection) { peerConnection.close(); peerConnection = null; } if (localStream) { localStream.getTracks().forEach(track => track.stop()); localStream = null; } localVideo.srcObject = null; remoteVideo.srcObject = null; setStatus("Desconectado.", "info"); }
+        startCallButton.addEventListener('click', startCallAndCreateOffer); createAnswerButton.addEventListener('click', createAnswerForOffer); connectButton.addEventListener('click', addAnswerAndConnect); disconnectButton.addEventListener('click', handleDisconnect);
     </script>
 </body>
 </html>
