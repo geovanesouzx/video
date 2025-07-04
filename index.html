@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Videochamada WebRTC - Estilo Discord</title>
+    
+    <!-- Tailwind CSS para estilização rápida e moderna -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Biblioteca PeerJS para simplificar o WebRTC -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    
+    <!-- Ícones (Heroicons) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        /* Estilo para o vídeo, garantindo que ele se ajuste ao container */
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1); /* Espelha o vídeo local para uma experiência natural */
+        }
+        .video-wrapper {
+            position: relative;
+            overflow: hidden;
+            border-radius: 0.5rem;
+            background-color: #202225;
+        }
+        .user-name {
+            position: absolute;
+            bottom: 8px;
+            left: 8px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.875rem;
+        }
+        /* Animação de carregamento */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-800 text-white font-sans antialiased">
+
+    <!-- Tela de Entrada / Lobby -->
+    <div id="lobby" class="flex flex-col items-center justify-center h-screen bg-gray-700 p-4">
+        <h1 class="text-4xl font-bold mb-2">Videochamada Web</h1>
+        <p class="text-gray-400 mb-8">Conecte-se com seus amigos em tempo real.</p>
+        
+        <div class="bg-gray-800 p-8 rounded-lg shadow-2xl w-full max-w-md">
+            <div class="mb-4">
+                <label for="username" class="block text-sm font-medium text-gray-300 mb-2">Seu Nome</label>
+                <input type="text" id="username" class="w-full bg-gray-900 border border-gray-700 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Digite seu nome...">
+            </div>
+            <div class="mb-6">
+                <label for="room-id" class="block text-sm font-medium text-gray-300 mb-2">ID da Sala (opcional)</label>
+                <input type="text" id="room-id" class="w-full bg-gray-900 border border-gray-700 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Cole o ID para entrar em uma sala">
+            </div>
+            <button id="join-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition duration-300">
+                Criar Sala / Entrar
+            </button>
+        </div>
+        <p class="mt-8 text-sm text-gray-500">Desenvolvido com PeerJS e WebRTC.</p>
+    </div>
+
+    <!-- Tela da Chamada -->
+    <div id="call-screen" class="hidden h-screen flex flex-col">
+        <!-- Grade de Vídeos -->
+        <div id="video-grid" class="flex-grow p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <!-- Vídeos dos participantes serão adicionados aqui -->
+        </div>
+
+        <!-- Barra de Informações e Controles -->
+        <div class="bg-gray-900 p-4 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                 <p class="text-sm text-gray-400">ID da Sala: <strong id="room-id-display" class="text-white"></strong></p>
+                 <button id="copy-room-id" class="bg-gray-700 hover:bg-gray-600 text-xs px-2 py-1 rounded-md transition">
+                    <i class="fas fa-copy mr-1"></i> Copiar ID
+                 </button>
+            </div>
+           
+            <div class="flex items-center gap-4">
+                <button id="toggle-mic" class="bg-gray-700 hover:bg-gray-600 w-12 h-12 rounded-full flex items-center justify-center text-xl transition">
+                    <i class="fas fa-microphone"></i>
+                </button>
+                <button id="toggle-video" class="bg-gray-700 hover:bg-gray-600 w-12 h-12 rounded-full flex items-center justify-center text-xl transition">
+                    <i class="fas fa-video"></i>
+                </button>
+                <button id="leave-btn" class="bg-red-600 hover:bg-red-700 w-16 h-12 rounded-full flex items-center justify-center text-xl transition">
+                    <i class="fas fa-phone-slash"></i>
+                </button>
+            </div>
+            <div class="w-48"></div> <!-- Espaçador para centralizar os controles -->
+        </div>
+    </div>
+    
+    <!-- Modal de Notificação -->
+    <div id="notification" class="hidden fixed top-5 right-5 bg-green-500 text-white py-2 px-4 rounded-lg shadow-lg transition-opacity duration-300">
+        ID da sala copiado!
+    </div>
+
+
+    <script>
+        // --- ELEMENTOS DA UI ---
+        const lobby = document.getElementById('lobby');
+        const callScreen = document.getElementById('call-screen');
+        const joinBtn = document.getElementById('join-btn');
+        const usernameInput = document.getElementById('username');
+        const roomIdInput = document.getElementById('room-id');
+        const videoGrid = document.getElementById('video-grid');
+        const toggleMicBtn = document.getElementById('toggle-mic');
+        const toggleVideoBtn = document.getElementById('toggle-video');
+        const leaveBtn = document.getElementById('leave-btn');
+        const roomIdDisplay = document.getElementById('room-id-display');
+        const copyRoomIdBtn = document.getElementById('copy-room-id');
+        const notification = document.getElementById('notification');
+
+        // --- VARIÁVEIS GLOBAIS ---
+        let peer;
+        let myStream;
+        let myPeerId;
+        let currentUsername = 'Anônimo';
+        const peers = {}; // Armazena as conexões ativas
+
+        // --- LÓGICA PRINCIPAL ---
+
+        joinBtn.addEventListener('click', async () => {
+            currentUsername = usernameInput.value || 'Anônimo';
+            const roomId = roomIdInput.value;
+
+            // Mostrar um loader enquanto a câmera é acessada
+            joinBtn.innerHTML = '<div class="loader mx-auto"></div>';
+            joinBtn.disabled = true;
+
+            try {
+                // 1. Obter acesso à câmera e microfone do usuário
+                myStream = await navigator.mediaDevices.getUserMedia({
+                    video: true,
+                    audio: true
+                });
+
+                // Transição para a tela de chamada
+                lobby.classList.add('hidden');
+                callScreen.classList.remove('hidden');
+
+                // Adiciona o vídeo local à grade
+                addVideoStream(myStream, currentUsername, true);
+
+                // 2. Inicializar o PeerJS
+                // Se um ID de sala for fornecido, tentamos nos conectar a ele.
+                // Se não, o PeerJS gera um ID único para nós (criando uma nova sala).
+                peer = roomId ? new Peer() : new Peer({
+                   // Para melhor confiabilidade, pode-se configurar servidores STUN/TURN aqui
+                   // Mas o PeerJS fornece um que funciona para a maioria dos casos.
+                });
+
+                peer.on('open', (id) => {
+                    myPeerId = id;
+                    const finalRoomId = roomId || myPeerId;
+                    roomIdDisplay.textContent = finalRoomId;
+                    
+                    // Se entramos em uma sala existente, ligamos para o dono da sala (que tem o ID da sala)
+                    if (roomId) {
+                        connectToNewUser(roomId, myStream);
+                    }
+                    
+                    // Avisa ao servidor (simulado) que um novo usuário se conectou
+                    // Em um app real, isso seria feito via WebSocket para notificar todos na sala.
+                    // Aqui, a conexão é feita diretamente.
+                });
+
+                // 3. Lidar com chamadas recebidas
+                peer.on('call', (call) => {
+                    // Atende a chamada, enviando nosso stream
+                    call.answer(myStream);
+
+                    // Quando recebemos o stream do outro usuário
+                    call.on('stream', (userVideoStream) => {
+                        // Evita adicionar vídeos duplicados
+                        if (peers[call.peer]) return;
+                        
+                        const remoteUsername = call.metadata?.username || 'Convidado';
+                        addVideoStream(userVideoStream, remoteUsername);
+                        peers[call.peer] = call;
+                    });
+
+                    call.on('close', () => {
+                        removeVideoStream(call.peer);
+                    });
+                     
+                    call.on('error', (err) => {
+                        console.error('Erro na chamada peer:', err);
+                        removeVideoStream(call.peer);
+                    });
+                });
+
+            } catch (err) {
+                console.error('Falha ao obter mídia local', err);
+                alert('Não foi possível acessar sua câmera e microfone. Verifique as permissões do navegador.');
+                joinBtn.innerHTML = 'Criar Sala / Entrar';
+                joinBtn.disabled = false;
+            }
+        });
+
+        // Função para se conectar a um novo usuário
+        function connectToNewUser(userId, stream) {
+            const call = peer.call(userId, stream, {
+                metadata: { username: currentUsername }
+            });
+            
+            call.on('stream', (userVideoStream) => {
+                 if (peers[call.peer]) return;
+                 const remoteUsername = call.metadata?.username || 'Convidado';
+                 addVideoStream(userVideoStream, remoteUsername, false, call.peer);
+                 peers[call.peer] = call;
+            });
+
+            call.on('close', () => {
+                removeVideoStream(call.peer);
+            });
+            
+            call.on('error', (err) => {
+                console.error('Erro ao ligar para peer:', err);
+                removeVideoStream(call.peer);
+            });
+        }
+
+        // Função para adicionar um stream de vídeo à grade
+        function addVideoStream(stream, username, isLocal = false, peerId = null) {
+            const videoWrapper = document.createElement('div');
+            videoWrapper.classList.add('video-wrapper');
+            if (peerId) {
+                videoWrapper.setAttribute('data-peer-id', peerId);
+            }
+
+            const video = document.createElement('video');
+            video.srcObject = stream;
+            video.addEventListener('loadedmetadata', () => {
+                video.play();
+            });
+
+            if (isLocal) {
+                video.muted = true; // Silencia o próprio vídeo para evitar eco
+            } else {
+                video.style.transform = 'scaleX(1)'; // Não espelha o vídeo dos outros
+            }
+
+            const nameTag = document.createElement('div');
+            nameTag.classList.add('user-name');
+            nameTag.textContent = username + (isLocal ? ' (Você)' : '');
+
+            videoWrapper.append(video, nameTag);
+            videoGrid.append(videoWrapper);
+            updateGridLayout();
+        }
+        
+        // Função para remover um stream de vídeo
+        function removeVideoStream(peerId) {
+            const videoWrapper = document.querySelector(`.video-wrapper[data-peer-id="${peerId}"]`);
+            if (videoWrapper) {
+                videoWrapper.remove();
+                delete peers[peerId];
+                updateGridLayout();
+            }
+        }
+        
+        // Função para ajustar o layout da grade dinamicamente
+        function updateGridLayout() {
+            const count = videoGrid.children.length;
+            if (count <= 2) {
+                videoGrid.className = 'flex-grow p-4 grid grid-cols-1 sm:grid-cols-2 gap-4';
+            } else if (count <= 4) {
+                videoGrid.className = 'flex-grow p-4 grid grid-cols-2 gap-4';
+            } else if (count <= 9) {
+                videoGrid.className = 'flex-grow p-4 grid grid-cols-3 gap-4';
+            } else {
+                videoGrid.className = 'flex-grow p-4 grid grid-cols-4 gap-4';
+            }
+        }
+
+        // --- CONTROLES DA CHAMADA ---
+
+        toggleMicBtn.addEventListener('click', () => {
+            const audioTrack = myStream.getAudioTracks()[0];
+            const icon = toggleMicBtn.querySelector('i');
+            if (audioTrack.enabled) {
+                audioTrack.enabled = false;
+                icon.className = 'fas fa-microphone-slash';
+                toggleMicBtn.classList.add('bg-red-600');
+            } else {
+                audioTrack.enabled = true;
+                icon.className = 'fas fa-microphone';
+                toggleMicBtn.classList.remove('bg-red-600');
+            }
+        });
+
+        toggleVideoBtn.addEventListener('click', () => {
+            const videoTrack = myStream.getVideoTracks()[0];
+            const icon = toggleVideoBtn.querySelector('i');
+            if (videoTrack.enabled) {
+                videoTrack.enabled = false;
+                icon.className = 'fas fa-video-slash';
+                toggleVideoBtn.classList.add('bg-red-600');
+            } else {
+                videoTrack.enabled = true;
+                icon.className = 'fas fa-video';
+                toggleVideoBtn.classList.remove('bg-red-600');
+            }
+        });
+
+        leaveBtn.addEventListener('click', () => {
+            // Fecha todas as conexões
+            for (let peerId in peers) {
+                if (peers[peerId]) {
+                    peers[peerId].close();
+                }
+            }
+            // Destrói o peer local
+            if (peer) {
+                peer.destroy();
+            }
+            // Recarrega a página para voltar ao lobby
+            window.location.reload();
+        });
+        
+        copyRoomIdBtn.addEventListener('click', () => {
+            navigator.clipboard.writeText(roomIdDisplay.textContent).then(() => {
+                notification.classList.remove('hidden');
+                setTimeout(() => {
+                    notification.classList.add('hidden');
+                }, 2000);
+            });
+        });
+
+    </script>
+</body>
+</html>
