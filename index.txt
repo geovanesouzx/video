@@ -3,364 +3,346 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Clone do Discord - Videochamada</title>
+    <title>Videochamada WebRTC - Estilo Discord</title>
     
-    <!-- Tailwind CSS CDN -->
+    <!-- Tailwind CSS para estilização rápida e moderna -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Google Fonts: Inter -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Biblioteca PeerJS para simplificar o WebRTC -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     
+    <!-- Ícones (Heroicons) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
     <style>
-        /* Estilo customizado para a fonte e scrollbars para um look mais próximo ao Discord */
-        body {
-            font-family: 'Inter', sans-serif;
-        }
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #2f3136;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #202225;
-            border-radius: 4px;
-        }
-        .video-container {
-            position: relative;
-            width: 100%;
-            padding-top: 56.25%; /* Proporção 16:9 */
-            background-color: #202225;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-        .video-container video {
-            position: absolute;
-            top: 0;
-            left: 0;
+        /* Estilo para o vídeo, garantindo que ele se ajuste ao container */
+        video {
             width: 100%;
             height: 100%;
             object-fit: cover;
+            transform: scaleX(-1); /* Espelha o vídeo local para uma experiência natural */
+        }
+        .video-wrapper {
+            position: relative;
+            overflow: hidden;
+            border-radius: 0.5rem;
+            background-color: #202225;
+        }
+        .user-name {
+            position: absolute;
+            bottom: 8px;
+            left: 8px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.875rem;
+        }
+        /* Animação de carregamento */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
-<body class="bg-gray-700 text-gray-200 flex h-screen antialiased">
+<body class="bg-gray-800 text-white font-sans antialiased">
 
-    <!-- 1. Barra de Servidores (Esquerda) -->
-    <div class="bg-gray-900 p-3 space-y-4">
-        <div class="bg-blue-600 w-12 h-12 rounded-full flex items-center justify-center cursor-pointer">
-            <svg class="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path></svg>
+    <!-- Tela de Entrada / Lobby -->
+    <div id="lobby" class="flex flex-col items-center justify-center h-screen bg-gray-700 p-4">
+        <h1 class="text-4xl font-bold mb-2">Videochamada Web</h1>
+        <p class="text-gray-400 mb-8">Conecte-se com seus amigos em tempo real.</p>
+        
+        <div class="bg-gray-800 p-8 rounded-lg shadow-2xl w-full max-w-md">
+            <div class="mb-4">
+                <label for="username" class="block text-sm font-medium text-gray-300 mb-2">Seu Nome</label>
+                <input type="text" id="username" class="w-full bg-gray-900 border border-gray-700 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Digite seu nome...">
+            </div>
+            <div class="mb-6">
+                <label for="room-id" class="block text-sm font-medium text-gray-300 mb-2">ID da Sala (opcional)</label>
+                <input type="text" id="room-id" class="w-full bg-gray-900 border border-gray-700 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Cole o ID para entrar em uma sala">
+            </div>
+            <button id="join-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition duration-300">
+                Criar Sala / Entrar
+            </button>
         </div>
-        <div class="bg-gray-700 w-12 h-12 rounded-2xl flex items-center justify-center cursor-pointer hover:bg-blue-600 hover:rounded-xl transition-all duration-200">
-            <span class="font-bold text-lg">S2</span>
-        </div>
-        <div class="bg-gray-700 w-12 h-12 rounded-2xl flex items-center justify-center cursor-pointer hover:bg-blue-600 hover:rounded-xl transition-all duration-200">
-            <span class="font-bold text-lg">S3</span>
-        </div>
+        <p class="mt-8 text-sm text-gray-500">Desenvolvido com PeerJS e WebRTC.</p>
     </div>
 
-    <!-- 2. Conteúdo Principal -->
-    <div class="flex-1 flex flex-col bg-gray-800">
-        <!-- 2.1. Cabeçalho do Canal -->
-        <header class="flex items-center justify-between p-4 shadow-md bg-gray-800 z-10">
-            <div class="flex items-center">
-                <span class="text-gray-400 text-2xl font-semibold mr-2">#</span>
-                <h1 class="text-white font-bold text-lg">geral</h1>
-            </div>
-            <div id="status" class="text-sm text-yellow-400">Aguardando conexão...</div>
-        </header>
+    <!-- Tela da Chamada -->
+    <div id="call-screen" class="hidden h-screen flex flex-col">
+        <!-- Grade de Vídeos -->
+        <div id="video-grid" class="flex-grow p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <!-- Vídeos dos participantes serão adicionados aqui -->
+        </div>
 
-        <!-- 2.2. Área Principal (Vídeo e Chat) -->
-        <main class="flex-1 flex p-4 gap-4 overflow-y-auto">
-            
-            <!-- Coluna de Vídeo e Controles -->
-            <div class="flex-1 flex flex-col gap-4">
-                <!-- Grid de Vídeos -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
-                    <div class="video-container">
-                        <video id="localVideo" autoplay muted playsinline></video>
-                        <div class="absolute bottom-2 left-2 bg-black bg-opacity-50 px-2 py-1 rounded text-sm">Você</div>
-                    </div>
-                    <div class="video-container">
-                        <video id="remoteVideo" autoplay playsinline></video>
-                        <div class="absolute bottom-2 left-2 bg-black bg-opacity-50 px-2 py-1 rounded text-sm">Remoto</div>
-                    </div>
-                </div>
-
-                <!-- Controles de Conexão (Manual Signaling) -->
-                <div class="bg-gray-900 p-4 rounded-lg space-y-3">
-                    <h3 class="font-semibold text-lg">Controle de Conexão (Manual)</h3>
-                    <p class="text-xs text-gray-400">Para conectar: 1. Clique em "Iniciar Chamada e Criar Oferta". 2. Copie a "Oferta" e envie para o outro usuário. 3. O outro usuário cola a oferta em "Oferta Recebida" e clica em "Criar Resposta". 4. Ele envia a "Resposta" de volta para você. 5. Cole a resposta em "Resposta Recebida" e clique em "Conectar".</p>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label for="offer" class="block text-sm font-medium mb-1">Oferta (copie e envie)</label>
-                            <textarea id="offer" rows="4" class="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-xs" readonly></textarea>
-                        </div>
-                        <div>
-                            <label for="answer" class="block text-sm font-medium mb-1">Resposta (copie e envie)</label>
-                            <textarea id="answer" rows="4" class="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-xs" readonly></textarea>
-                        </div>
-                        <div>
-                            <label for="receivedOffer" class="block text-sm font-medium mb-1">Oferta Recebida (cole aqui)</label>
-                            <textarea id="receivedOffer" rows="4" class="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-xs"></textarea>
-                        </div>
-                        <div>
-                            <label for="receivedAnswer" class="block text-sm font-medium mb-1">Resposta Recebida (cole aqui)</label>
-                            <textarea id="receivedAnswer" rows="4" class="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-xs"></textarea>
-                        </div>
-                    </div>
-                    <div class="flex flex-wrap gap-2 pt-2">
-                        <button id="startCallButton" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition">1. Iniciar Chamada e Criar Oferta</button>
-                        <button id="createAnswerButton" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition">2. Criar Resposta</button>
-                        <button id="connectButton" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg transition">3. Conectar</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Coluna de Usuários (Direita) -->
-            <div class="w-64 bg-gray-800 p-4 rounded-lg hidden lg:block">
-                <h2 class="font-bold text-gray-400 uppercase text-sm mb-4">Membros — 2</h2>
-                <div class="space-y-4">
-                    <div class="flex items-center gap-3">
-                        <img src="https://placehold.co/40x40/7289da/ffffff?text=V" alt="Avatar" class="w-10 h-10 rounded-full">
-                        <span class="font-semibold">Você</span>
-                    </div>
-                    <div class="flex items-center gap-3 opacity-50">
-                        <img src="https://placehold.co/40x40/7289da/ffffff?text=R" alt="Avatar" class="w-10 h-10 rounded-full">
-                        <span class="font-semibold">Remoto</span>
-                    </div>
-                </div>
-            </div>
-        </main>
-
-        <!-- 2.3. Barra de Controles do Usuário -->
-        <footer class="bg-gray-900 p-3 flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <img src="https://placehold.co/40x40/7289da/ffffff?text=V" alt="Avatar" class="w-10 h-10 rounded-full">
-                <div>
-                    <div class="font-bold">Você</div>
-                    <div class="text-xs text-gray-400">Online</div>
-                </div>
-            </div>
+        <!-- Barra de Informações e Controles -->
+        <div class="bg-gray-900 p-4 flex items-center justify-between">
             <div class="flex items-center gap-4">
-                <button id="toggleMicButton" class="p-2 bg-gray-700 rounded-full hover:bg-gray-600 transition">
-                    <svg id="micIcon" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
+                 <p class="text-sm text-gray-400">ID da Sala: <strong id="room-id-display" class="text-white"></strong></p>
+                 <button id="copy-room-id" class="bg-gray-700 hover:bg-gray-600 text-xs px-2 py-1 rounded-md transition">
+                    <i class="fas fa-copy mr-1"></i> Copiar ID
+                 </button>
+            </div>
+           
+            <div class="flex items-center gap-4">
+                <button id="toggle-mic" class="bg-gray-700 hover:bg-gray-600 w-12 h-12 rounded-full flex items-center justify-center text-xl transition">
+                    <i class="fas fa-microphone"></i>
                 </button>
-                <button id="toggleCameraButton" class="p-2 bg-gray-700 rounded-full hover:bg-gray-600 transition">
-                    <svg id="cameraIcon" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                <button id="toggle-video" class="bg-gray-700 hover:bg-gray-600 w-12 h-12 rounded-full flex items-center justify-center text-xl transition">
+                    <i class="fas fa-video"></i>
                 </button>
-                <button id="disconnectButton" class="p-2 bg-red-600 rounded-full hover:bg-red-700 transition">
-                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+                <button id="leave-btn" class="bg-red-600 hover:bg-red-700 w-16 h-12 rounded-full flex items-center justify-center text-xl transition">
+                    <i class="fas fa-phone-slash"></i>
                 </button>
             </div>
-        </footer>
+            <div class="w-48"></div> <!-- Espaçador para centralizar os controles -->
+        </div>
     </div>
+    
+    <!-- Modal de Notificação -->
+    <div id="notification" class="hidden fixed top-5 right-5 bg-green-500 text-white py-2 px-4 rounded-lg shadow-lg transition-opacity duration-300">
+        ID da sala copiado!
+    </div>
+
 
     <script>
-        // --- Seleção de Elementos do DOM ---
-        const localVideo = document.getElementById('localVideo');
-        const remoteVideo = document.getElementById('remoteVideo');
-        const startCallButton = document.getElementById('startCallButton');
-        const createAnswerButton = document.getElementById('createAnswerButton');
-        const connectButton = document.getElementById('connectButton');
-        const disconnectButton = document.getElementById('disconnectButton');
-        const toggleMicButton = document.getElementById('toggleMicButton');
-        const toggleCameraButton = document.getElementById('toggleCameraButton');
-        const statusDiv = document.getElementById('status');
-        
-        const offerTextarea = document.getElementById('offer');
-        const answerTextarea = document.getElementById('answer');
-        const receivedOfferTextarea = document.getElementById('receivedOffer');
-        const receivedAnswerTextarea = document.getElementById('receivedAnswer');
+        // --- ELEMENTOS DA UI ---
+        const lobby = document.getElementById('lobby');
+        const callScreen = document.getElementById('call-screen');
+        const joinBtn = document.getElementById('join-btn');
+        const usernameInput = document.getElementById('username');
+        const roomIdInput = document.getElementById('room-id');
+        const videoGrid = document.getElementById('video-grid');
+        const toggleMicBtn = document.getElementById('toggle-mic');
+        const toggleVideoBtn = document.getElementById('toggle-video');
+        const leaveBtn = document.getElementById('leave-btn');
+        const roomIdDisplay = document.getElementById('room-id-display');
+        const copyRoomIdBtn = document.getElementById('copy-room-id');
+        const notification = document.getElementById('notification');
 
-        // --- Variáveis de Estado ---
-        let localStream;
-        let peerConnection;
-        
-        // --- Configuração do WebRTC ---
-        // Usamos um servidor STUN público do Google para ajudar a estabelecer a conexão
-        // através de firewalls e NATs.
-        const configuration = {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' }
-            ]
-        };
+        // --- VARIÁVEIS GLOBAIS ---
+        let peer;
+        let myStream;
+        let myPeerId;
+        let currentUsername = 'Anônimo';
+        const peers = {}; // Armazena as conexões ativas
 
-        // --- Funções Principais ---
+        // --- LÓGICA PRINCIPAL ---
 
-        /**
-         * Inicializa a chamada, obtendo acesso à câmera e microfone do usuário.
-         */
-        async function startMedia() {
+        joinBtn.addEventListener('click', async () => {
+            currentUsername = usernameInput.value || 'Anônimo';
+            const roomId = roomIdInput.value;
+
+            // Mostrar um loader enquanto a câmera é acessada
+            joinBtn.innerHTML = '<div class="loader mx-auto"></div>';
+            joinBtn.disabled = true;
+
             try {
-                // Pede permissão e obtém o stream de áudio e vídeo
-                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                localVideo.srcObject = localStream;
-                statusDiv.textContent = "Câmera e microfone iniciados. Crie uma oferta.";
-                statusDiv.className = "text-sm text-green-400";
-            } catch (error) {
-                console.error('Erro ao acessar mídia:', error);
-                statusDiv.textContent = "Erro ao acessar câmera/microfone.";
-                statusDiv.className = "text-sm text-red-500";
+                // 1. Obter acesso à câmera e microfone do usuário
+                myStream = await navigator.mediaDevices.getUserMedia({
+                    video: true,
+                    audio: true
+                });
+
+                // Transição para a tela de chamada
+                lobby.classList.add('hidden');
+                callScreen.classList.remove('hidden');
+
+                // Adiciona o vídeo local à grade
+                addVideoStream(myStream, currentUsername, true);
+
+                // 2. Inicializar o PeerJS
+                // Se um ID de sala for fornecido, tentamos nos conectar a ele.
+                // Se não, o PeerJS gera um ID único para nós (criando uma nova sala).
+                peer = roomId ? new Peer() : new Peer({
+                   // Para melhor confiabilidade, pode-se configurar servidores STUN/TURN aqui
+                   // Mas o PeerJS fornece um que funciona para a maioria dos casos.
+                });
+
+                peer.on('open', (id) => {
+                    myPeerId = id;
+                    const finalRoomId = roomId || myPeerId;
+                    roomIdDisplay.textContent = finalRoomId;
+                    
+                    // Se entramos em uma sala existente, ligamos para o dono da sala (que tem o ID da sala)
+                    if (roomId) {
+                        connectToNewUser(roomId, myStream);
+                    }
+                    
+                    // Avisa ao servidor (simulado) que um novo usuário se conectou
+                    // Em um app real, isso seria feito via WebSocket para notificar todos na sala.
+                    // Aqui, a conexão é feita diretamente.
+                });
+
+                // 3. Lidar com chamadas recebidas
+                peer.on('call', (call) => {
+                    // Atende a chamada, enviando nosso stream
+                    call.answer(myStream);
+
+                    // Quando recebemos o stream do outro usuário
+                    call.on('stream', (userVideoStream) => {
+                        // Evita adicionar vídeos duplicados
+                        if (peers[call.peer]) return;
+                        
+                        const remoteUsername = call.metadata?.username || 'Convidado';
+                        addVideoStream(userVideoStream, remoteUsername);
+                        peers[call.peer] = call;
+                    });
+
+                    call.on('close', () => {
+                        removeVideoStream(call.peer);
+                    });
+                     
+                    call.on('error', (err) => {
+                        console.error('Erro na chamada peer:', err);
+                        removeVideoStream(call.peer);
+                    });
+                });
+
+            } catch (err) {
+                console.error('Falha ao obter mídia local', err);
+                alert('Não foi possível acessar sua câmera e microfone. Verifique as permissões do navegador.');
+                joinBtn.innerHTML = 'Criar Sala / Entrar';
+                joinBtn.disabled = false;
             }
-        }
+        });
 
-        /**
-         * Cria e configura a conexão Peer-to-Peer (RTCPeerConnection).
-         */
-        function createPeerConnection() {
-            peerConnection = new RTCPeerConnection(configuration);
-
-            // Adiciona os tracks (faixas de áudio/vídeo) do stream local à conexão
-            localStream.getTracks().forEach(track => {
-                peerConnection.addTrack(track, localStream);
+        // Função para se conectar a um novo usuário
+        function connectToNewUser(userId, stream) {
+            const call = peer.call(userId, stream, {
+                metadata: { username: currentUsername }
+            });
+            
+            call.on('stream', (userVideoStream) => {
+                 if (peers[call.peer]) return;
+                 const remoteUsername = call.metadata?.username || 'Convidado';
+                 addVideoStream(userVideoStream, remoteUsername, false, call.peer);
+                 peers[call.peer] = call;
             });
 
-            // Evento disparado quando um track remoto é recebido
-            peerConnection.ontrack = event => {
-                remoteVideo.srcObject = event.streams[0];
-                statusDiv.textContent = "Conectado!";
-                statusDiv.className = "text-sm text-green-400 font-bold";
-            };
-
-            // Evento para coletar candidatos ICE e exibi-los para troca manual
-            // Em uma app real, isso seria enviado via WebSocket para o outro peer.
-            peerConnection.onicecandidate = event => {
-                if (event.candidate) {
-                    console.log('Novo candidato ICE:', event.candidate);
-                    // Aqui é onde você enviaria o candidato para o outro peer
-                    // Para este demo, a troca de SDP já contém os candidatos iniciais.
-                }
-            };
+            call.on('close', () => {
+                removeVideoStream(call.peer);
+            });
+            
+            call.on('error', (err) => {
+                console.error('Erro ao ligar para peer:', err);
+                removeVideoStream(call.peer);
+            });
         }
 
-        /**
-         * Inicia a chamada, cria a conexão e gera a oferta SDP.
-         */
-        async function startCallAndCreateOffer() {
-            if (!localStream) {
-                await startMedia();
+        // Função para adicionar um stream de vídeo à grade
+        function addVideoStream(stream, username, isLocal = false, peerId = null) {
+            const videoWrapper = document.createElement('div');
+            videoWrapper.classList.add('video-wrapper');
+            if (peerId) {
+                videoWrapper.setAttribute('data-peer-id', peerId);
             }
-            if (!localStream) {
-                alert("Não foi possível iniciar a câmera. A chamada não pode continuar.");
-                return;
+
+            const video = document.createElement('video');
+            video.srcObject = stream;
+            video.addEventListener('loadedmetadata', () => {
+                video.play();
+            });
+
+            if (isLocal) {
+                video.muted = true; // Silencia o próprio vídeo para evitar eco
+            } else {
+                video.style.transform = 'scaleX(1)'; // Não espelha o vídeo dos outros
             }
-            
-            createPeerConnection();
-            
-            const offer = await peerConnection.createOffer();
-            await peerConnection.setLocalDescription(offer);
-            
-            offerTextarea.value = JSON.stringify(peerConnection.localDescription);
+
+            const nameTag = document.createElement('div');
+            nameTag.classList.add('user-name');
+            nameTag.textContent = username + (isLocal ? ' (Você)' : '');
+
+            videoWrapper.append(video, nameTag);
+            videoGrid.append(videoWrapper);
+            updateGridLayout();
         }
-
-        /**
-         * Cria uma resposta para uma oferta recebida.
-         */
-        async function createAnswer() {
-            if (!localStream) {
-                await startMedia();
-            }
-            if (!localStream) {
-                alert("Não foi possível iniciar a câmera. A chamada não pode continuar.");
-                return;
-            }
-            
-            const offerValue = receivedOfferTextarea.value;
-            if (!offerValue) {
-                alert('Cole a oferta recebida primeiro!');
-                return;
-            }
-
-            createPeerConnection();
-
-            try {
-                const offer = JSON.parse(offerValue);
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-                
-                const answer = await peerConnection.createAnswer();
-                await peerConnection.setLocalDescription(answer);
-                
-                answerTextarea.value = JSON.stringify(peerConnection.localDescription);
-            } catch (error) {
-                console.error("Erro ao criar resposta:", error);
-                alert("Formato da oferta inválido. Verifique se copiou corretamente.");
-            }
-        }
-
-        /**
-         * Conecta usando a resposta recebida.
-         */
-        async function connectWithAnswer() {
-            const answerValue = receivedAnswerTextarea.value;
-            if (!answerValue) {
-                alert('Cole a resposta recebida primeiro!');
-                return;
-            }
-
-            try {
-                const answer = JSON.parse(answerValue);
-                if (!peerConnection.currentRemoteDescription) {
-                    await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-                }
-            } catch (error) {
-                console.error("Erro ao conectar com a resposta:", error);
-                alert("Formato da resposta inválido. Verifique se copiou corretamente.");
+        
+        // Função para remover um stream de vídeo
+        function removeVideoStream(peerId) {
+            const videoWrapper = document.querySelector(`.video-wrapper[data-peer-id="${peerId}"]`);
+            if (videoWrapper) {
+                videoWrapper.remove();
+                delete peers[peerId];
+                updateGridLayout();
             }
         }
         
-        /**
-         * Desconecta a chamada, fechando a conexão e parando os streams.
-         */
-        function disconnect() {
-            if (peerConnection) {
-                peerConnection.close();
-                peerConnection = null;
+        // Função para ajustar o layout da grade dinamicamente
+        function updateGridLayout() {
+            const count = videoGrid.children.length;
+            if (count <= 2) {
+                videoGrid.className = 'flex-grow p-4 grid grid-cols-1 sm:grid-cols-2 gap-4';
+            } else if (count <= 4) {
+                videoGrid.className = 'flex-grow p-4 grid grid-cols-2 gap-4';
+            } else if (count <= 9) {
+                videoGrid.className = 'flex-grow p-4 grid grid-cols-3 gap-4';
+            } else {
+                videoGrid.className = 'flex-grow p-4 grid grid-cols-4 gap-4';
             }
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
-                localStream = null;
+        }
+
+        // --- CONTROLES DA CHAMADA ---
+
+        toggleMicBtn.addEventListener('click', () => {
+            const audioTrack = myStream.getAudioTracks()[0];
+            const icon = toggleMicBtn.querySelector('i');
+            if (audioTrack.enabled) {
+                audioTrack.enabled = false;
+                icon.className = 'fas fa-microphone-slash';
+                toggleMicBtn.classList.add('bg-red-600');
+            } else {
+                audioTrack.enabled = true;
+                icon.className = 'fas fa-microphone';
+                toggleMicBtn.classList.remove('bg-red-600');
             }
-            localVideo.srcObject = null;
-            remoteVideo.srcObject = null;
-            offerTextarea.value = '';
-            answerTextarea.value = '';
-            receivedOfferTextarea.value = '';
-            receivedAnswerTextarea.value = '';
-            statusDiv.textContent = "Desconectado.";
-            statusDiv.className = "text-sm text-gray-400";
-        }
+        });
 
-        // --- Funções de Controle (Mudo, Câmera) ---
-        function toggleMic() {
-            if (!localStream) return;
-            const audioTrack = localStream.getAudioTracks()[0];
-            audioTrack.enabled = !audioTrack.enabled;
-            toggleMicButton.classList.toggle('bg-red-600', !audioTrack.enabled);
-            toggleMicButton.classList.toggle('bg-gray-700', audioTrack.enabled);
-        }
+        toggleVideoBtn.addEventListener('click', () => {
+            const videoTrack = myStream.getVideoTracks()[0];
+            const icon = toggleVideoBtn.querySelector('i');
+            if (videoTrack.enabled) {
+                videoTrack.enabled = false;
+                icon.className = 'fas fa-video-slash';
+                toggleVideoBtn.classList.add('bg-red-600');
+            } else {
+                videoTrack.enabled = true;
+                icon.className = 'fas fa-video';
+                toggleVideoBtn.classList.remove('bg-red-600');
+            }
+        });
 
-        function toggleCamera() {
-            if (!localStream) return;
-            const videoTrack = localStream.getVideoTracks()[0];
-            videoTrack.enabled = !videoTrack.enabled;
-            toggleCameraButton.classList.toggle('bg-red-600', !videoTrack.enabled);
-            toggleCameraButton.classList.toggle('bg-gray-700', videoTrack.enabled);
-        }
-
-        // --- Event Listeners ---
-        startCallButton.addEventListener('click', startCallAndCreateOffer);
-        createAnswerButton.addEventListener('click', createAnswer);
-        connectButton.addEventListener('click', connectWithAnswer);
-        disconnectButton.addEventListener('click', disconnect);
-        toggleMicButton.addEventListener('click', toggleMic);
-        toggleCameraButton.addEventListener('click', toggleCamera);
+        leaveBtn.addEventListener('click', () => {
+            // Fecha todas as conexões
+            for (let peerId in peers) {
+                if (peers[peerId]) {
+                    peers[peerId].close();
+                }
+            }
+            // Destrói o peer local
+            if (peer) {
+                peer.destroy();
+            }
+            // Recarrega a página para voltar ao lobby
+            window.location.reload();
+        });
         
-        // Inicia o processo assim que a página carrega, mas sem pedir permissão ainda.
-        window.addEventListener('load', () => {
-            console.log("Página carregada. Pronto para iniciar a chamada.");
+        copyRoomIdBtn.addEventListener('click', () => {
+            navigator.clipboard.writeText(roomIdDisplay.textContent).then(() => {
+                notification.classList.remove('hidden');
+                setTimeout(() => {
+                    notification.classList.add('hidden');
+                }, 2000);
+            });
         });
 
     </script>
