@@ -1,440 +1,413 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Clone do Discord - Funcional</title>
-    
+    <title>Clone do Discord com Firebase</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        'discord-dark': '#202225',
-                        'discord-primary': '#2f3136',
-                        'discord-secondary': '#36393f',
-                        'discord-tertiary': '#40444b',
-                        'discord-blurple': '#5865f2',
-                        'discord-text': '#dcddde',
-                        'discord-text-muted': '#72767d',
-                        'discord-header': '#b9bbbe',
-                        'discord-green': '#3ba55d',
-                        'discord-red': '#ed4245',
-                    }
-                }
-            }
-        }
-    </script>
-    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; }
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #2f3136; }
         ::-webkit-scrollbar-thumb { background: #202225; border-radius: 4px; }
-        #app, #login-screen { display: none; }
-        .view { display: none; }
-        .view.active { display: flex; }
-        .form-field-hidden { display: none; }
+        .active-channel { background-color: #393c43; }
+        .modal-backdrop { background-color: rgba(0, 0, 0, 0.85); }
+        #video-call-modal video { width: 100%; height: 100%; object-fit: cover; border-radius: 0.5rem; }
+        .video-grid { width: 100%; height: calc(100% - 100px); }
     </style>
 </head>
-<body class="bg-discord-secondary text-discord-text h-screen antialiased overflow-hidden">
+<body class="bg-[#36393f] text-gray-300">
 
-    <!-- TELA DE LOGIN -->
-    <div id="login-screen" class="w-full h-full flex items-center justify-center bg-discord-secondary p-4">
-        <div class="w-full max-w-md bg-discord-primary p-8 rounded-lg shadow-lg">
-            <h2 id="form-title" class="text-2xl font-bold text-white text-center mb-2">Bem-vindo(a) de volta!</h2>
-            <p id="form-subtitle" class="text-center text-discord-header mb-6">Estamos muito animados em te ver novamente!</p>
-            <div id="auth-error" class="text-discord-red text-sm mb-4 text-center font-semibold"></div>
-            <div id="auth-success" class="text-discord-green text-sm mb-4 text-center font-semibold"></div>
-            <form id="login-form">
-                <div id="username-field" class="mb-4 form-field-hidden">
-                    <label for="username" class="text-xs font-bold text-discord-header uppercase">Nome de Usuário</label>
-                    <input type="text" id="username" class="w-full bg-discord-dark border border-black/20 rounded-md p-2 mt-1 text-white focus:outline-none focus:ring-2 focus:ring-discord-blurple" minlength="3" maxlength="20">
+    <!-- Tela de Autenticação -->
+    <div id="auth-container" class="flex items-center justify-center h-screen">
+        <div class="w-full max-w-md p-8 space-y-6 bg-[#2f3136] rounded-lg shadow-lg">
+            <div>
+                <h2 class="text-2xl font-bold text-center text-white">Bem-vindo de volta!</h2>
+                <p class="text-center text-gray-400">Estamos muito animados em te ver novamente!</p>
+            </div>
+            <form id="login-form" class="space-y-4">
+                <div>
+                    <label for="login-email" class="block text-sm font-medium text-gray-400">E-MAIL</label>
+                    <input type="email" id="login-email" required class="w-full px-3 py-2 mt-1 text-white bg-[#202225] border border-[#202225] rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500">
                 </div>
-                <div class="mb-4">
-                    <label for="email" class="text-xs font-bold text-discord-header uppercase">Email</label>
-                    <input type="email" id="email" required class="w-full bg-discord-dark border border-black/20 rounded-md p-2 mt-1 text-white focus:outline-none focus:ring-2 focus:ring-discord-blurple">
+                <div>
+                    <label for="login-password" class="block text-sm font-medium text-gray-400">SENHA</label>
+                    <input type="password" id="login-password" required class="w-full px-3 py-2 mt-1 text-white bg-[#202225] border border-[#202225] rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500">
                 </div>
-                <div class="mb-6">
-                    <label for="password" class="text-xs font-bold text-discord-header uppercase">Senha</label>
-                    <input type="password" id="password" required class="w-full bg-discord-dark border border-black/20 rounded-md p-2 mt-1 text-white focus:outline-none focus:ring-2 focus:ring-discord-blurple">
-                </div>
-                <button type="submit" id="submit-button" class="w-full bg-discord-blurple hover:bg-discord-blurple/80 text-white font-bold py-2 px-4 rounded-md transition">Entrar</button>
+                <p id="auth-error" class="text-sm text-red-500 hidden"></p>
+                <button type="submit" class="w-full py-2 font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700">Entrar</button>
             </form>
-            <p class="text-xs text-discord-text-muted mt-4 text-center">
-                <span id="prompt-text">Precisa de uma conta?</span>
-                <button id="toggle-form-button" class="text-discord-blurple hover:underline">Registre-se</button>
+            <p class="text-sm text-center text-gray-400">
+                Precisa de uma conta? <button id="show-signup" class="font-medium text-blue-500 hover:underline">Registre-se</button>
             </p>
         </div>
     </div>
 
-    <!-- APP PRINCIPAL -->
-    <div id="app" class="flex h-screen w-full">
-        <!-- Coluna 1: Servidores -->
-        <div class="bg-discord-dark p-3 space-y-2 flex-shrink-0 flex flex-col items-center">
-             <div class="w-12 h-12 rounded-full flex items-center justify-center cursor-pointer bg-discord-blurple">
-                <svg class="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M20.29,10.24a2.44,2.44,0,0,0-1.59-2.3,2.46,2.46,0,0,0-2.61.53,2.5,2.5,0,0,0-2.33-1.3H13.5a2.5,2.5,0,0,0-2.33,1.3,2.5,2.5,0,0,0-2.61-.53,2.44,2.44,0,0,0-1.59,2.3,2.53,2.53,0,0,0,.19,1,10.1,10.1,0,0,0-2.4,4.58A2.5,2.5,0,0,0,6.5,18h11a2.5,2.5,0,0,0,1.71-2.18,10.1,10.1,0,0,0-2.4-4.58,2.53,2.53,0,0,0,.19-1ZM9.12,14.39a1.7,1.7,0,1,1,1.7-1.7A1.7,1.7,0,0,1,9.12,14.39Zm5.76,0a1.7,1.7,0,1,1,1.7-1.7A1.7,1.7,0,0,1,14.88,14.39Z"/></svg>
-            </div>
-            <div class="w-8 h-px bg-discord-tertiary"></div>
-            <button id="logout-button" title="Sair" class="mt-auto w-12 h-12 rounded-2xl flex items-center justify-center cursor-pointer bg-discord-primary hover:bg-discord-red hover:rounded-xl transition-all duration-200">
-                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
-            </button>
-        </div>
-        
-        <!-- Coluna 2: Canais / Amigos -->
-        <div class="bg-discord-primary w-60 flex flex-col flex-shrink-0">
-            <header class="p-4 font-bold text-white shadow-md h-12 flex items-center border-b border-discord-dark">
-                <input type="text" placeholder="Encontrar ou começar uma conversa" class="w-full bg-discord-dark text-sm p-1 rounded-sm placeholder-discord-text-muted">
-            </header>
-            <div class="flex-1 p-2 space-y-2 overflow-y-auto">
-                <button data-view="friends-view" class="nav-button w-full flex items-center p-2 rounded text-left bg-discord-tertiary text-white">
-                    <svg class="w-5 h-5 mr-2 text-discord-text-muted" fill="currentColor" viewBox="0 0 20 20"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"></path></svg>
-                    <span class="font-semibold">Amigos</span>
-                </button>
-                <button data-view="videocall-view" class="nav-button w-full flex items-center p-2 rounded text-left hover:bg-discord-tertiary/50 text-discord-header">
-                     <svg class="w-5 h-5 mr-2 text-discord-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-                    <span class="font-semibold">Videochamada</span>
-                </button>
-                <div class="px-2 pt-4 text-xs font-bold uppercase text-discord-text-muted">Mensagens Diretas</div>
-                <div id="friends-list" class="space-y-1"></div>
-            </div>
-            <footer class="p-2 bg-discord-dark/50 flex items-center justify-between">
-                 <div class="flex items-center">
-                    <div id="user-display-name" class="text-sm font-semibold text-white"></div>
-                </div>
-            </footer>
-        </div>
-
-        <!-- Coluna 3: Conteúdo Principal -->
-        <div class="flex-1 flex flex-col bg-discord-secondary">
-            <!-- VIEW: Amigos -->
-            <div id="friends-view" class="view active flex-col h-full">
-                <header class="flex items-center p-3 h-12 border-b border-discord-dark flex-shrink-0">
-                    <h2 class="text-white font-semibold">Adicionar Amigo</h2>
-                </header>
-                <main class="flex-1 p-4 overflow-y-auto">
-                    <p class="text-discord-header mb-4">Você pode adicionar um amigo com o nome de usuário dele. É sensível a maiúsculas e minúsculas!</p>
-                    <div class="flex items-center bg-discord-dark p-2 rounded-lg">
-                        <input id="add-friend-input" type="text" placeholder="Insira um nome de usuário" class="flex-1 bg-transparent text-white placeholder-discord-text-muted focus:outline-none">
-                        <button id="add-friend-button" class="bg-discord-blurple text-white text-sm font-semibold px-4 py-2 rounded">Enviar Pedido</button>
-                    </div>
-                    <div id="add-friend-status" class="mt-4 text-sm"></div>
-                </main>
-            </div>
-            
-            <!-- VIEW: Chat -->
-            <div id="chat-view" class="view flex-col h-full">
-                <header id="chat-header" class="flex items-center p-3 h-12 border-b border-discord-dark flex-shrink-0">
-                    <h2 id="chat-with-username" class="text-white font-semibold"></h2>
-                </header>
-                <main id="chat-messages" class="flex-1 p-4 space-y-4 overflow-y-auto">
-                    <!-- Mensagens serão inseridas aqui -->
-                </main>
-                <footer class="p-4 flex-shrink-0">
-                    <form id="chat-form" class="flex items-center bg-discord-tertiary p-2 rounded-lg">
-                        <input id="chat-input" type="text" placeholder="Conversar..." class="flex-1 bg-transparent text-white placeholder-discord-text-muted focus:outline-none">
-                        <button type="submit" class="text-discord-blurple font-semibold">Enviar</button>
+    <!-- App Principal (Inicialmente Oculto) -->
+    <div id="app-container" class="hidden h-screen">
+        <div class="flex h-full antialiased">
+            <!-- Coluna de Canais -->
+            <div class="flex flex-col w-64 bg-[#2f3136]">
+                <header class="flex items-center p-4 font-bold text-white border-b border-black/20 shadow-md h-14">
+                    <form id="search-user-form" class="w-full">
+                        <input type="text" id="search-user-input" class="w-full px-2 py-1 text-sm bg-[#202225] rounded-md focus:outline-none" placeholder="Encontre ou comece uma conversa">
                     </form>
+                </header>
+                <div id="channel-list" class="flex-1 p-2 space-y-1 overflow-y-auto"></div>
+                <!-- Painel do Usuário -->
+                <footer class="flex items-center justify-between p-2 bg-[#292b2f] h-16 mt-auto">
+                    <div id="user-panel" class="flex items-center cursor-pointer"></div>
+                    <button id="logout-button" class="p-2 text-gray-400 rounded-md hover:bg-gray-600 hover:text-white">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                    </button>
                 </footer>
             </div>
-
-            <!-- VIEW: Videochamada -->
-            <div id="videocall-view" class="view flex-col h-full">
-                 <header class="flex items-center p-3 h-12 border-b border-discord-dark flex-shrink-0">
-                    <h2 class="text-white font-semibold">Videochamada Manual</h2>
+            <!-- Área do Chat -->
+            <main class="flex flex-col flex-1 bg-[#36393f] min-w-0">
+                <header class="flex items-center justify-between flex-shrink-0 p-4 border-b border-black/20 shadow-md h-14">
+                    <div id="chat-header-info" class="flex items-center"></div>
+                    <button id="video-call-button" class="hidden text-gray-400 hover:text-white transition-colors">
+                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M17,10.5V7A1,1 0 0,0 16,6H4A1,1 0 0,0 3,7V17A1,1 0 0,0 4,18H16A1,1 0 0,0 17,17V13.5L21,17.5V6.5L17,10.5Z"/></svg>
+                    </button>
                 </header>
-                <main class="flex-1 p-4 overflow-y-auto space-y-4">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="bg-discord-dark rounded-lg aspect-video relative"><video id="localVideo" class="w-full h-full object-cover rounded-lg" autoplay muted playsinline></video></div>
-                        <div class="bg-discord-dark rounded-lg aspect-video relative"><video id="remoteVideo" class="w-full h-full object-cover rounded-lg" autoplay playsinline></video></div>
-                    </div>
-                    <div class="bg-discord-primary p-4 rounded-lg space-y-3">
-                        <h3 class="font-semibold text-lg text-white">Controle de Conexão</h3>
-                        <div id="webrtc-status" class="text-sm text-discord-header"></div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label for="offer" class="block text-sm font-medium text-discord-header">Sua Oferta</label><textarea id="offer" rows="2" class="w-full bg-discord-dark border-black/20 rounded p-1 text-xs" readonly></textarea></div>
-                            <div><label for="answer" class="block text-sm font-medium text-discord-header">Sua Resposta</label><textarea id="answer" rows="2" class="w-full bg-discord-dark border-black/20 rounded p-1 text-xs" readonly></textarea></div>
-                            <div><label for="receivedOffer" class="block text-sm font-medium text-discord-header">Oferta Recebida</label><textarea id="receivedOffer" rows="2" class="w-full bg-discord-dark border-black/20 rounded p-1 text-xs"></textarea></div>
-                            <div><label for="receivedAnswer" class="block text-sm font-medium text-discord-header">Resposta Recebida</label><textarea id="receivedAnswer" rows="2" class="w-full bg-discord-dark border-black/20 rounded p-1 text-xs"></textarea></div>
-                        </div>
-                        <div class="flex flex-wrap gap-2 pt-2">
-                            <button id="startCallButton" class="bg-discord-green text-white font-semibold py-2 px-3 rounded text-sm">1. Criar Oferta</button>
-                            <button id="createAnswerButton" class="bg-discord-blurple text-white font-semibold py-2 px-3 rounded text-sm">2. Criar Resposta</button>
-                            <button id="connectButton" class="bg-discord-secondary text-white font-semibold py-2 px-3 rounded text-sm">3. Conectar</button>
-                            <button id="disconnectButton" class="bg-discord-red text-white font-semibold py-2 px-3 rounded text-sm">Desconectar</button>
-                        </div>
-                    </div>
-                </main>
-            </div>
+                <div id="chat-messages" class="flex-1 p-4 space-y-4 overflow-y-auto"></div>
+                <div id="message-input-container" class="flex-shrink-0 p-4 hidden">
+                    <form id="message-form" class="flex items-center p-2 bg-[#40444b] rounded-lg">
+                        <input id="message-input" type="text" class="flex-1 text-white bg-transparent focus:outline-none" placeholder="">
+                    </form>
+                </div>
+            </main>
         </div>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getFirestore, doc, getDoc, setDoc, collection, query, where, getDocs, onSnapshot, addDoc, serverTimestamp, updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, sendEmailVerification, fetchSignInMethodsForEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    <!-- Modals -->
+    <div id="video-call-modal" class="fixed inset-0 z-50 flex-col items-center justify-center hidden modal-backdrop text-white">
+        <div class="video-grid p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-black rounded-lg flex items-center justify-center relative">
+                <video id="local-video" autoplay playsinline muted class="transform -scale-x-100"></video>
+                <p id="local-video-name" class="absolute bottom-2 left-2"></p>
+            </div>
+            <div class="bg-black rounded-lg flex items-center justify-center relative">
+                <div id="remote-video-placeholder" class="text-center"></div>
+                <p id="remote-video-name" class="absolute bottom-2 left-2"></p>
+            </div>
+        </div>
+        <div class="absolute bottom-0 left-0 right-0 flex justify-center p-4">
+            <button id="video-call-close" class="p-4 bg-red-600 rounded-full hover:bg-red-500 transition-colors">
+                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12,9C10.4,9 8.85,9.25 7.4,9.72V12.81C7.4,12.81 7.4,12.81 7.4,12.81C8.7,14.19 10.2,15 12,15C13.8,15 15.3,14.19 16.6,12.81C16.6,12.81 16.6,12.81 16.6,12.81V9.72C15.15,9.25 13.6,9 12,9M20,15.5C20,15.5 20,15.5 20,15.5V12C20,11.28 19.6,10.61 19.04,10.22L19.03,10.21C18.5,9.85 17.82,9.72 17.21,9.86L17.16,9.88C15.88,10.26 14,10.76 12,10.76C10,10.76 8.12,10.26 6.84,9.88L6.79,9.86C6.18,9.72 5.5,9.85 4.97,10.21L4.96,10.22C4.4,10.61 4,11.28 4,12V15.5C4,15.5 4,15.5 4,15.5C4,18.15 7.58,20.28 12,20.28C16.42,20.28 20,18.15 20,15.5Z"/></svg>
+            </button>
+        </div>
+    </div>
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyB98-bStjweF82UALPiw2YiwKKn1IhZASE",
-            authDomain: "videochamada11.firebaseapp.com",
-            projectId: "videochamada11",
-            storageBucket: "videochamada11.appspot.com",
-            messagingSenderId: "872635256324",
-            appId: "1:872635256324:web:12a6051efe8796730f2f51"
-        };
+<script type="module">
+    // Importações do Firebase
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+    import { 
+        getAuth, 
+        createUserWithEmailAndPassword, 
+        signInWithEmailAndPassword, 
+        signOut, 
+        onAuthStateChanged 
+    } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
+    import { 
+        getFirestore, 
+        doc, 
+        setDoc, 
+        getDoc, 
+        collection, 
+        query, 
+        where, 
+        getDocs,
+        addDoc,
+        onSnapshot,
+        orderBy,
+        serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        let currentUser = null;
-        let currentChatId = null;
-        let unsubscribeChat = null;
+    // Configuração do Firebase que você forneceu
+    const firebaseConfig = {
+      apiKey: "AIzaSyB98-bStjweF82UALPiw2YiwKKn1IhZASE",
+      authDomain: "videochamada11.firebaseapp.com",
+      projectId: "videochamada11",
+      storageBucket: "videochamada11.appspot.com",
+      messagingSenderId: "872635256324",
+      appId: "1:872635256324:web:12a6051efe8796730f2f51"
+    };
 
-        // --- LÓGICA DE NAVEGAÇÃO (SPA) ---
-        const navButtons = document.querySelectorAll('.nav-button');
-        const views = document.querySelectorAll('.view');
-        navButtons.forEach(button => {
-            button.addEventListener('click', () => {
-                const targetViewId = button.dataset.view;
-                views.forEach(view => view.classList.remove('active'));
-                document.getElementById(targetViewId).classList.add('active');
-                navButtons.forEach(btn => btn.classList.remove('bg-discord-tertiary', 'text-white'));
-                button.classList.add('bg-discord-tertiary', 'text-white');
-            });
-        });
+    // Inicializar Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
 
-        // --- LÓGICA DE AUTENTICAÇÃO ---
-        const loginScreen = document.getElementById('login-screen');
-        const appScreen = document.getElementById('app');
-        const loginForm = document.getElementById('login-form');
-        const usernameField = document.getElementById('username-field');
-        const usernameInput = document.getElementById('username');
-        const emailInput = document.getElementById('email');
-        const passwordInput = document.getElementById('password');
-        const authErrorDiv = document.getElementById('auth-error');
-        const authSuccessDiv = document.getElementById('auth-success');
-        const toggleFormButton = document.getElementById('toggle-form-button');
-        const formTitle = document.getElementById('form-title');
-        const formSubtitle = document.getElementById('form-subtitle');
-        const promptText = document.getElementById('prompt-text');
-        const submitButton = document.getElementById('submit-button');
-        const logoutButton = document.getElementById('logout-button');
-        const userDisplayNameDiv = document.getElementById('user-display-name');
+    // --- ELEMENTOS DO DOM ---
+    const authContainer = document.getElementById('auth-container');
+    const appContainer = document.getElementById('app-container');
+    const loginForm = document.getElementById('login-form');
+    const showSignup = document.getElementById('show-signup');
+    const authError = document.getElementById('auth-error');
+    const logoutButton = document.getElementById('logout-button');
+    const userPanel = document.getElementById('user-panel');
+    const channelListEl = document.getElementById('channel-list');
+    const chatHeaderInfoEl = document.getElementById('chat-header-info');
+    const chatMessagesEl = document.getElementById('chat-messages');
+    const messageForm = document.getElementById('message-form');
+    const messageInput = document.getElementById('message-input');
+    const messageInputContainer = document.getElementById('message-input-container');
+    const searchUserForm = document.getElementById('search-user-form');
+    const searchUserInput = document.getElementById('search-user-input');
+    const videoCallModal = document.getElementById('video-call-modal');
+    const videoCallButton = document.getElementById('video-call-button');
+    const videoCallClose = document.getElementById('video-call-close');
+    const localVideo = document.getElementById('local-video');
 
-        let isLoginMode = true;
+    let currentChannelId = null;
+    let localStream = null;
+    let unsubscribeMessages = null; // Função para parar de ouvir mensagens do canal atual
+    let unsubscribeChannels = null; // Função para parar de ouvir canais
 
-        function clearAuthMessages() {
-            authErrorDiv.textContent = '';
-            authSuccessDiv.textContent = '';
+    // --- LÓGICA DE AUTENTICAÇÃO ---
+    onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            // Usuário está logado
+            authContainer.classList.add('hidden');
+            appContainer.classList.remove('hidden');
+            await setupAppForUser(user);
+        } else {
+            // Usuário não está logado
+            authContainer.classList.remove('hidden');
+            appContainer.classList.add('hidden');
+            if (unsubscribeChannels) unsubscribeChannels();
+            if (unsubscribeMessages) unsubscribeMessages();
         }
+    });
 
-        toggleFormButton.addEventListener('click', (e) => {
-            e.preventDefault();
-            isLoginMode = !isLoginMode;
-            clearAuthMessages();
-            loginForm.reset();
-            usernameField.classList.toggle('form-field-hidden', isLoginMode);
-            usernameInput.required = !isLoginMode;
+    loginForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const email = document.getElementById('login-email').value;
+        const password = document.getElementById('login-password').value;
+        const isSignup = loginForm.querySelector('button[type=submit]').textContent === 'Registrar';
 
-            if (isLoginMode) {
-                formTitle.textContent = 'Bem-vindo(a) de volta!';
-                formSubtitle.textContent = 'Estamos muito animados em te ver novamente!';
-                submitButton.textContent = 'Entrar';
-                promptText.textContent = 'Precisa de uma conta?';
-                toggleFormButton.textContent = 'Registre-se';
-            } else {
-                formTitle.textContent = 'Crie uma conta';
-                formSubtitle.textContent = 'É rápido e fácil!';
-                submitButton.textContent = 'Continuar';
-                promptText.textContent = 'Já tem uma conta?';
-                toggleFormButton.textContent = 'Entrar';
-            }
-        });
-
-        loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            clearAuthMessages();
-            const email = emailInput.value;
-            const password = passwordInput.value;
-
-            if (isLoginMode) {
-                try {
-                    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-                    if (!userCredential.user.emailVerified) {
-                        await signOut(auth);
-                        authErrorDiv.textContent = 'Seu e-mail ainda não foi verificado. Por favor, verifique sua caixa de entrada.';
-                    }
-                } catch (error) {
-                    authErrorDiv.textContent = 'E-mail ou senha inválidos.';
-                }
-            } else {
-                const username = usernameInput.value.trim();
-                if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
-                    authErrorDiv.textContent = 'Nome de usuário inválido. Use 3-20 letras, números ou _.';
-                    return;
-                }
-                try {
-                    const methods = await fetchSignInMethodsForEmail(auth, email);
-                    if (methods.length > 0) {
-                        authErrorDiv.textContent = 'Este e-mail já está em uso.';
-                        return;
-                    }
-                    const usernameDoc = await getDoc(doc(db, "usernames", username));
-                    if (usernameDoc.exists()) {
-                        authErrorDiv.textContent = 'Este nome de usuário já está em uso.';
-                        return;
-                    }
-                    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        if (isSignup) {
+            // Lógica de Cadastro
+            createUserWithEmailAndPassword(auth, email, password)
+                .then(async (userCredential) => {
                     const user = userCredential.user;
-                    await setDoc(doc(db, "users", user.uid), { username: username, email: user.email, friends: [] });
-                    await setDoc(doc(db, "usernames", username), { userId: user.uid });
-                    await sendEmailVerification(user);
-                    await signOut(auth);
-                    authSuccessDiv.textContent = 'Conta criada! Um link de verificação foi enviado para o seu e-mail.';
-                } catch (error) {
-                    authErrorDiv.textContent = 'Erro ao registrar. A senha precisa de no mínimo 6 caracteres.';
-                }
-            }
-        });
+                    const username = email.split('@')[0]; // Pega o nome do usuário do e-mail
+                    await setDoc(doc(db, "users", user.uid), {
+                        uid: user.uid,
+                        email: user.email,
+                        username: username,
+                        avatar: `https://placehold.co/40x40/7289da/ffffff?text=${username.charAt(0).toUpperCase()}`
+                    });
+                })
+                .catch(handleAuthError);
+        } else {
+            // Lógica de Login
+            signInWithEmailAndPassword(auth, email, password).catch(handleAuthError);
+        }
+    });
+
+    showSignup.addEventListener('click', () => {
+        const isLogin = showSignup.textContent === 'Registre-se';
+        loginForm.querySelector('h2').textContent = isLogin ? 'Criar conta' : 'Bem-vindo de volta!';
+        loginForm.querySelector('button[type=submit]').textContent = isLogin ? 'Registrar' : 'Entrar';
+        showSignup.textContent = isLogin ? 'Já tem uma conta? Entre' : 'Registre-se';
+        authError.classList.add('hidden');
+    });
+
+    logoutButton.addEventListener('click', () => {
+        signOut(auth);
+    });
+
+    function handleAuthError(error) {
+        let message = "Ocorreu um erro. Tente novamente.";
+        if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+            message = "E-mail ou senha incorretos.";
+        } else if (error.code === 'auth/email-already-in-use') {
+            message = "Este e-mail já está em uso.";
+        } else if (error.code === 'auth/weak-password') {
+            message = "A senha deve ter pelo menos 6 caracteres.";
+        }
+        authError.textContent = message;
+        authError.classList.remove('hidden');
+    }
+
+    // --- LÓGICA PRINCIPAL DO APP ---
+    async function setupAppForUser(user) {
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        const userData = userDoc.data();
+
+        // Renderiza o painel do usuário
+        userPanel.innerHTML = `
+            <div class="relative">
+                <img class="w-10 h-10 rounded-full" src="${userData.avatar}" alt="Avatar">
+                <div class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-[#292b2f] rounded-full"></div>
+            </div>
+            <div class="ml-2">
+                <p class="text-sm font-semibold text-white">${userData.username}</p>
+                <p class="text-xs text-gray-400">${userData.email}</p>
+            </div>
+        `;
         
-        logoutButton.addEventListener('click', () => signOut(auth));
-
-        onAuthStateChanged(auth, async (user) => {
-            if (user && user.emailVerified) {
-                currentUser = user;
-                const userDoc = await getDoc(doc(db, "users", user.uid));
-                if (userDoc.exists()) {
-                    const userData = userDoc.data();
-                    userDisplayNameDiv.textContent = userData.username;
-                    loadFriends(userData.friends || []);
-                }
-                loginScreen.style.display = 'none';
-                appScreen.style.display = 'flex';
-            } else {
-                currentUser = null;
-                loginScreen.style.display = 'flex';
-                appScreen.style.display = 'none';
-                handleDisconnect();
-            }
-        });
-
-        // --- LÓGICA DE AMIGOS E CHAT ---
-        const addFriendInput = document.getElementById('add-friend-input');
-        const addFriendButton = document.getElementById('add-friend-button');
-        const addFriendStatus = document.getElementById('add-friend-status');
-        const friendsListDiv = document.getElementById('friends-list');
-        const chatForm = document.getElementById('chat-form');
-        const chatInput = document.getElementById('chat-input');
-        const chatMessagesDiv = document.getElementById('chat-messages');
-        const chatWithUsernameDiv = document.getElementById('chat-with-username');
-
-        addFriendButton.addEventListener('click', async () => {
-            const friendUsername = addFriendInput.value.trim();
-            if (!friendUsername || !currentUser) return;
-            
-            const usernameDoc = await getDoc(doc(db, "usernames", friendUsername));
-            if (!usernameDoc.exists()) {
-                addFriendStatus.textContent = "Usuário não encontrado.";
-                addFriendStatus.className = "mt-4 text-sm text-discord-red";
-                return;
-            }
-            
-            const friendId = usernameDoc.data().userId;
-            if (friendId === currentUser.uid) {
-                addFriendStatus.textContent = "Você não pode se adicionar.";
-                addFriendStatus.className = "mt-4 text-sm text-discord-red";
-                return;
-            }
-
-            const userDocRef = doc(db, "users", currentUser.uid);
-            await updateDoc(userDocRef, { friends: arrayUnion(friendId) });
-            
-            addFriendStatus.textContent = `Amigo ${friendUsername} adicionado!`;
-            addFriendStatus.className = "mt-4 text-sm text-discord-green";
-            addFriendInput.value = '';
-        });
-
-        async function loadFriends(friendIds) {
-            friendsListDiv.innerHTML = '';
-            for (const friendId of friendIds) {
+        // Ouve por atualizações nos canais do usuário
+        const q = query(collection(db, "chats"), where("users", "array-contains", user.uid));
+        unsubscribeChannels = onSnapshot(q, async (snapshot) => {
+            const channels = [];
+            for (const chatDoc of snapshot.docs) {
+                const chatData = chatDoc.data();
+                const friendId = chatData.users.find(id => id !== user.uid);
                 const friendDoc = await getDoc(doc(db, "users", friendId));
-                if (friendDoc.exists()) {
-                    const friendData = friendDoc.data();
-                    const friendDiv = document.createElement('div');
-                    friendDiv.className = 'flex items-center p-2 rounded cursor-pointer hover:bg-discord-tertiary/50';
-                    friendDiv.innerHTML = `<div class="w-8 h-8 rounded-full bg-discord-blurple mr-2 flex-shrink-0"></div><span>${friendData.username}</span>`;
-                    friendDiv.onclick = () => openChat(friendId, friendData.username);
-                    friendsListDiv.appendChild(friendDiv);
-                }
+                channels.push({ id: chatDoc.id, ...chatData, friend: friendDoc.data() });
             }
-        }
-
-        async function openChat(friendId, friendUsername) {
-            views.forEach(view => view.classList.remove('active'));
-            document.getElementById('chat-view').classList.add('active');
-            chatWithUsernameDiv.textContent = friendUsername;
-
-            const chatId = currentUser.uid > friendId ? `${currentUser.uid}_${friendId}` : `${friendId}_${currentUser.uid}`;
-            currentChatId = chatId;
-
-            if (unsubscribeChat) unsubscribeChat();
-
-            const messagesRef = collection(db, "chats", chatId, "messages");
-            const q = query(messagesRef);
-            
-            unsubscribeChat = onSnapshot(q, (snapshot) => {
-                chatMessagesDiv.innerHTML = '';
-                snapshot.docs.sort((a,b) => a.data().timestamp - b.data().timestamp).forEach(doc => {
-                    const msg = doc.data();
-                    const msgDiv = document.createElement('div');
-                    const isMe = msg.senderId === currentUser.uid;
-                    msgDiv.className = `flex items-start gap-3 ${isMe ? 'flex-row-reverse' : ''}`;
-                    msgDiv.innerHTML = `
-                        <div class="w-10 h-10 rounded-full bg-discord-blurple flex-shrink-0"></div>
-                        <div>
-                            <p class="font-semibold ${isMe ? 'text-right' : ''}">${isMe ? 'Você' : friendUsername}</p>
-                            <div class="bg-discord-primary p-3 rounded-lg mt-1">${msg.text}</div>
-                        </div>
-                    `;
-                    chatMessagesDiv.appendChild(msgDiv);
-                });
-                chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
-            });
-        }
-
-        chatForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const text = chatInput.value.trim();
-            if (!text || !currentChatId || !currentUser) return;
-            
-            await addDoc(collection(db, "chats", currentChatId, "messages"), {
-                text: text,
-                senderId: currentUser.uid,
-                timestamp: serverTimestamp()
-            });
-            chatInput.value = '';
+            renderChannels(channels);
         });
+    }
 
-        // --- LÓGICA WEBRTC ---
-        const localVideo = document.getElementById('localVideo'), remoteVideo = document.getElementById('remoteVideo');
-        const startCallButton = document.getElementById('startCallButton'), createAnswerButton = document.getElementById('createAnswerButton'), connectButton = document.getElementById('connectButton'), disconnectButton = document.getElementById('disconnectButton');
-        const webrtcStatus = document.getElementById('webrtc-status');
-        const offerTextarea = document.getElementById('offer'), answerTextarea = document.getElementById('answer'), receivedOfferTextarea = document.getElementById('receivedOffer'), receivedAnswerTextarea = document.getElementById('receivedAnswer');
-        let localStream, peerConnection;
-        const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
-        function setWebRTCStatus(message, type = 'info') { webrtcStatus.textContent = message; webrtcStatus.className = `text-sm ${type === 'error' ? 'text-discord-red' : 'text-discord-header'}`; }
-        async function startMedia() { if (localStream) return true; try { localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true }); localVideo.srcObject = localStream; return true; } catch (error) { setWebRTCStatus('ERRO: Permissão de câmera/microfone negada.', 'error'); return false; } }
-        function createPeerConnection() { if (peerConnection) peerConnection.close(); peerConnection = new RTCPeerConnection(configuration); localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream)); peerConnection.ontrack = event => { remoteVideo.srcObject = event.streams[0]; }; peerConnection.onicecandidate = event => { if (event.candidate) { if(offerTextarea.value) offerTextarea.value = JSON.stringify(peerConnection.localDescription); if(answerTextarea.value) answerTextarea.value = JSON.stringify(peerConnection.localDescription); } }; peerConnection.onconnectionstatechange = () => { setWebRTCStatus(`Estado da conexão: ${peerConnection.connectionState}`); if (["failed", "disconnected", "closed"].includes(peerConnection.connectionState)) handleDisconnect(); }; }
-        async function startCallAndCreateOffer() { if (!await startMedia()) return; createPeerConnection(); try { const offer = await peerConnection.createOffer(); await peerConnection.setLocalDescription(offer); offerTextarea.value = JSON.stringify(peerConnection.localDescription); setWebRTCStatus("Oferta criada. Copie e envie."); } catch (error) { setWebRTCStatus("Falha ao criar oferta.", "error"); } }
-        async function createAnswerForOffer() { const offerValue = receivedOfferTextarea.value; if (!offerValue) return setWebRTCStatus('ERRO: Cole a oferta recebida primeiro!', 'error'); if (!await startMedia()) return; createPeerConnection(); try { await peerConnection.setRemoteDescription(new RTCSessionDescription(JSON.parse(offerValue))); const answer = await peerConnection.createAnswer(); await peerConnection.setLocalDescription(answer); answerTextarea.value = JSON.stringify(peerConnection.localDescription); setWebRTCStatus("Resposta criada. Copie e envie de volta."); } catch (error) { setWebRTCStatus("ERRO: Formato da oferta inválido.", "error"); } }
-        async function addAnswerAndConnect() { const answerValue = receivedAnswerTextarea.value; if (!answerValue) return setWebRTCStatus('ERRO: Cole a resposta recebida primeiro!', 'error'); if (!peerConnection) return setWebRTCStatus('ERRO: Crie uma oferta primeiro.', 'error'); try { if (!peerConnection.currentRemoteDescription) await peerConnection.setRemoteDescription(new RTCSessionDescription(JSON.parse(answerValue))); } catch (error) { setWebRTCStatus("ERRO: Formato da resposta inválido.", "error"); } }
-        function handleDisconnect() { if (peerConnection) { peerConnection.close(); peerConnection = null; } if (localStream) { localStream.getTracks().forEach(track => track.stop()); localStream = null; } localVideo.srcObject = null; remoteVideo.srcObject = null; setWebRTCStatus("Desconectado."); }
-        startCallButton.addEventListener('click', startCallAndCreateOffer); createAnswerButton.addEventListener('click', createAnswerForOffer); connectButton.addEventListener('click', addAnswerAndConnect); disconnectButton.addEventListener('click', handleDisconnect);
-    </script>
+    function renderChannels(channels) {
+        channelListEl.innerHTML = '';
+        if (channels.length === 0) {
+            channelListEl.innerHTML = `<p class="px-2 text-sm text-gray-400">Nenhuma conversa encontrada.</p>`;
+            return;
+        }
+        channels.forEach(channel => {
+            const channelEl = document.createElement('a');
+            channelEl.href = '#';
+            channelEl.className = `channel-item flex items-center px-2 py-1 rounded hover:bg-[#393c43] ${channel.id === currentChannelId ? 'active-channel' : ''}`;
+            channelEl.dataset.id = channel.id;
+            channelEl.innerHTML = `<img class="w-8 h-8 rounded-full mr-2" src="${channel.friend.avatar}" alt="Avatar"><span>${channel.friend.username}</span>`;
+            channelListEl.appendChild(channelEl);
+        });
+    }
+    
+    async function selectChannel(channelId) {
+        if (unsubscribeMessages) unsubscribeMessages(); // Para de ouvir o canal antigo
+        currentChannelId = channelId;
+        
+        const allChannelElements = document.querySelectorAll('.channel-item');
+        allChannelElements.forEach(el => el.classList.remove('active-channel'));
+        const selectedEl = document.querySelector(`.channel-item[data-id="${channelId}"]`);
+        if(selectedEl) selectedEl.classList.add('active-channel');
+
+        // Renderiza o cabeçalho
+        const chatDoc = await getDoc(doc(db, "chats", channelId));
+        const friendId = chatDoc.data().users.find(id => id !== auth.currentUser.uid);
+        const friendDoc = await getDoc(doc(db, "users", friendId));
+        const friendData = friendDoc.data();
+        chatHeaderInfoEl.innerHTML = `<img class="w-8 h-8 rounded-full mr-3" src="${friendData.avatar}" alt="Avatar"><h2 class="text-lg font-semibold text-white">${friendData.username}</h2>`;
+        videoCallButton.classList.remove('hidden');
+        messageInputContainer.classList.remove('hidden');
+        messageInput.placeholder = `Conversar com @${friendData.username}`;
+
+        // Ouve por novas mensagens
+        const messagesRef = collection(db, "chats", channelId, "messages");
+        const q = query(messagesRef, orderBy("timestamp"));
+        
+        unsubscribeMessages = onSnapshot(q, async (snapshot) => {
+            chatMessagesEl.innerHTML = '';
+            for (const messageDoc of snapshot.docs) {
+                const messageData = messageDoc.data();
+                const senderDoc = await getDoc(doc(db, "users", messageData.senderId));
+                const senderData = senderDoc.data();
+                const msgEl = createMessageElement(senderData, messageData);
+                chatMessagesEl.appendChild(msgEl);
+            }
+            chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+        });
+    }
+
+    function createMessageElement(sender, message) {
+        const messageEl = document.createElement('div');
+        messageEl.className = 'flex items-start';
+        const time = message.timestamp ? message.timestamp.toDate().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit'}) : '';
+        messageEl.innerHTML = `
+            <img class="w-10 h-10 mt-1 rounded-full" src="${sender.avatar}" alt="Avatar">
+            <div class="ml-3">
+                <p class="font-semibold text-white">${sender.username} <span class="ml-2 text-xs font-normal text-gray-400">${time}</span></p>
+                <p class="text-white break-words">${message.text}</p>
+            </div>`;
+        return messageEl;
+    }
+
+    messageForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const text = messageInput.value.trim();
+        if (text === '' || !currentChannelId) return;
+
+        await addDoc(collection(db, "chats", currentChannelId, "messages"), {
+            text: text,
+            senderId: auth.currentUser.uid,
+            timestamp: serverTimestamp()
+        });
+        messageInput.value = '';
+    });
+    
+    searchUserForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const username = searchUserInput.value.trim();
+        if(!username) return;
+
+        const usersRef = collection(db, "users");
+        const q = query(usersRef, where("username", "==", username));
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+            alert("Usuário não encontrado.");
+            return;
+        }
+
+        const friend = querySnapshot.docs[0].data();
+        if (friend.uid === auth.currentUser.uid) {
+            alert("Você não pode conversar consigo mesmo.");
+            return;
+        }
+        
+        // Verifica se já existe um chat
+        const chatsRef = collection(db, "chats");
+        const chatQuery = query(chatsRef, where("users", "in", [[auth.currentUser.uid, friend.uid], [friend.uid, auth.currentUser.uid]]));
+        const chatSnapshot = await getDocs(chatQuery);
+        
+        if (!chatSnapshot.empty) {
+            // Chat já existe, seleciona ele
+            selectChannel(chatSnapshot.docs[0].id);
+        } else {
+            // Cria um novo chat
+            const newChatRef = await addDoc(chatsRef, {
+                users: [auth.currentUser.uid, friend.uid],
+                createdAt: serverTimestamp()
+            });
+            selectChannel(newChatRef.id);
+        }
+        searchUserInput.value = '';
+    });
+    
+    channelListEl.addEventListener('click', (e) => {
+        const channelItem = e.target.closest('.channel-item');
+        if (channelItem) {
+            e.preventDefault();
+            selectChannel(channelItem.dataset.id);
+        }
+    });
+
+    // --- VIDEOCHAMADA ---
+    videoCallButton.addEventListener('click', async () => {
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            localVideo.srcObject = localStream;
+            videoCallModal.classList.remove('hidden');
+        } catch (error) {
+            alert("Não foi possível acessar sua câmera. Verifique as permissões.");
+        }
+    });
+    videoCallClose.addEventListener('click', () => {
+        if (localStream) {
+            localStream.getTracks().forEach(track => track.stop());
+        }
+        localVideo.srcObject = null;
+        localStream = null;
+        videoCallModal.classList.add('hidden');
+    });
+
+</script>
 </body>
 </html>
