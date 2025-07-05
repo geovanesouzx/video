@@ -3,534 +3,370 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Discord Clone - Compartilhamento de Áudio</title>
+    <title>Teleclone - Chat Funcional</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            overflow: hidden;
+        body { font-family: 'Inter', sans-serif; }
+        /* Estilos para a scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 6px; }
+        ::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+        /* Esconde elementos por padrão */
+        .hidden { display: none; }
+        /* Animação para o menu lateral */
+        #side-menu {
+            transition: transform 0.3s ease-in-out;
+            transform: translateX(-100%);
         }
-        .scrollbar-hide::-webkit-scrollbar {
-            display: none;
-        }
-        .scrollbar-hide {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-        .video-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 1rem;
-        }
-        .video-container {
-            position: relative;
-            background-color: #202225;
-            border-radius: 0.5rem;
-            overflow: hidden;
-            aspect-ratio: 16 / 9;
-        }
-        .video-container video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        .video-container .user-label {
-            position: absolute;
-            bottom: 8px;
-            left: 8px;
-            background-color: rgba(0, 0, 0, 0.6);
-            color: white;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 0.8rem;
+        #side-menu.open {
+            transform: translateX(0);
         }
     </style>
 </head>
-<body class="bg-[#36393f] text-gray-300 flex h-screen">
+<body class="bg-gray-100 h-screen overflow-hidden">
 
-    <!-- Sidebar de Canais -->
-    <div class="w-60 bg-[#2f3136] flex flex-col">
-        <div class="p-4 font-bold text-white border-b border-gray-900/50">
-            Servidor Principal
-        </div>
-        <div class="flex-1 p-2 space-y-2 overflow-y-auto scrollbar-hide">
-            <div>
-                <h2 class="px-2 text-xs font-bold tracking-wider text-gray-400 uppercase">Canais de Voz</h2>
-                <div id="voice-channel" class="flex items-center p-2 mt-1 rounded cursor-pointer hover:bg-gray-700/50">
-                    <i class="fas fa-volume-up w-5 mr-2 text-gray-400"></i>
-                    <span>Sala de Voz</span>
-                </div>
+    <!-- Container de Autenticação -->
+    <div id="auth-container" class="flex items-center justify-center h-full bg-gray-200">
+        <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
+            <div class="text-center">
+                <h2 class="text-2xl font-bold text-gray-800">Bem-vindo ao Teleclone</h2>
+                <p class="text-gray-600">Faça login ou crie sua conta</p>
             </div>
-        </div>
-        <div id="user-info-panel" class="p-2 bg-[#292b2f] flex items-center justify-between">
-            <div class="flex items-center">
-                <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center mr-2">
-                    <i class="fas fa-user text-white"></i>
-                </div>
-                <div class="text-sm">
-                    <div class="font-semibold text-white truncate" id="user-id-display">Carregando...</div>
-                    <div id="connection-status" class="text-xs text-red-500">Desconectado</div>
-                </div>
+            <div id="auth-error" class="p-3 text-sm text-red-700 bg-red-100 rounded-lg hidden"></div>
+            <form id="login-form" class="space-y-6">
+                <input id="login-email" type="email" placeholder="Email" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                <input id="login-password" type="password" placeholder="Senha" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                <button type="submit" class="w-full px-4 py-2 font-semibold text-white bg-blue-500 rounded-lg hover:bg-blue-600">Entrar</button>
+            </form>
+            <div class="text-center">
+                <p class="text-sm text-gray-600">Não tem uma conta?
+                    <a href="#" id="show-signup" class="font-medium text-blue-600 hover:underline">Cadastre-se</a>
+                </p>
             </div>
-             <button id="copy-id-button" title="Copiar ID de Usuário" class="px-2 py-1 text-xs text-gray-400 bg-gray-700 rounded hover:bg-gray-600">
-                <i class="fas fa-copy"></i>
-            </button>
+            <form id="signup-form" class="space-y-6 hidden">
+                <input id="signup-email" type="email" placeholder="Email" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                <input id="signup-password" type="password" placeholder="Senha (mínimo 6 caracteres)" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                <button type="submit" class="w-full px-4 py-2 font-semibold text-white bg-green-500 rounded-lg hover:bg-green-600">Criar Conta</button>
+            </form>
         </div>
     </div>
 
-    <!-- Conteúdo Principal -->
-    <div class="flex-1 flex flex-col bg-[#36393f]">
-        <div class="p-4 border-b shadow-md border-gray-900/50 text-white font-semibold">
-            <i class="fas fa-hashtag mr-2 text-gray-500"></i>
-            Bem-vindo!
+    <!-- Container de Verificação de Email -->
+    <div id="email-verification-container" class="hidden flex items-center justify-center h-full bg-gray-200">
+        <div class="w-full max-w-md p-8 space-y-4 text-center bg-white rounded-lg shadow-md">
+            <h2 class="text-2xl font-bold text-gray-800">Verifique seu E-mail</h2>
+            <p class="text-gray-600">Enviamos um link de verificação para o seu e-mail. Por favor, clique no link para continuar. Depois, atualize esta página.</p>
+            <button id="logout-verification" class="px-4 py-2 font-semibold text-white bg-red-500 rounded-lg hover:bg-red-600">Sair</button>
         </div>
-        <div id="main-content" class="flex-1 p-4 overflow-y-auto">
-            <div id="videos-grid" class="video-grid">
-                <!-- Vídeos dos participantes serão adicionados aqui -->
+    </div>
+
+    <!-- Container para Definir Nome de Usuário -->
+    <div id="username-container" class="hidden flex items-center justify-center h-full bg-gray-200">
+        <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
+            <h2 class="text-2xl font-bold text-center text-gray-800">Escolha seu nome de usuário</h2>
+            <div id="username-error" class="p-3 text-sm text-red-700 bg-red-100 rounded-lg hidden"></div>
+            <form id="username-form" class="space-y-4">
+                <input id="username-input" type="text" placeholder="Nome de usuário (único)" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                <button type="submit" class="w-full px-4 py-2 font-semibold text-white bg-blue-500 rounded-lg hover:bg-blue-600">Salvar e Entrar</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Container Principal do App (Chat) -->
+    <div id="main-app-container" class="hidden h-full w-full">
+        <!-- Menu Lateral Deslizante -->
+        <div id="side-menu" class="fixed z-20 top-0 left-0 h-full w-72 bg-[#212731] p-4 text-white flex flex-col">
+            <div class="flex items-center space-x-4 mb-8">
+                <img id="menu-avatar" src="https://placehold.co/48x48/E2E8F0/4A5568?text=P" alt="Avatar" class="w-12 h-12 rounded-full">
+                <div>
+                    <p id="menu-username" class="font-semibold">Nome de Usuário</p>
+                    <p id="menu-email" class="text-sm text-gray-400">email@exemplo.com</p>
+                </div>
             </div>
-            <div id="placeholder-content" class="flex flex-col items-center justify-center h-full text-center text-gray-500">
-                <i class="fas fa-headset fa-4x mb-4"></i>
-                <h2 class="text-2xl font-semibold">Você não está em um canal de voz.</h2>
-                <p>Clique em "Sala de Voz" à esquerda para entrar e conversar.</p>
+            <nav class="flex flex-col space-y-2">
+                <button id="profile-button" class="flex items-center p-2 space-x-3 rounded-lg hover:bg-gray-700">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                    <span>Meu Perfil</span>
+                </button>
+                 <button class="flex items-center p-2 space-x-3 rounded-lg hover:bg-gray-700">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <span>Ajuda</span>
+                </button>
+                 <button class="flex items-center p-2 space-x-3 rounded-lg hover:bg-gray-700">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    <span>Configurações</span>
+                </button>
+            </nav>
+            <div class="mt-auto">
+                <button id="logout-button" class="flex items-center w-full p-2 space-x-3 text-red-400 rounded-lg hover:bg-red-500 hover:text-white">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                    <span>Sair</span>
+                </button>
             </div>
         </div>
-        <div id="call-controls" class="p-2 bg-[#2f3136] border-t border-gray-900/50 flex items-center justify-center space-x-4 hidden">
-            <button id="toggle-mic-button" class="w-12 h-12 bg-gray-600 rounded-full flex items-center justify-center text-white hover:bg-gray-500 transition-colors" title="Mutar Microfone">
-                <i class="fas fa-microphone"></i>
-            </button>
-            <button id="share-audio-button" class="w-12 h-12 bg-gray-600 rounded-full flex items-center justify-center text-white hover:bg-gray-500 transition-colors" title="Compartilhar Áudio/Tela">
-                <i class="fas fa-desktop"></i>
-            </button>
-            <button id="leave-call-button" class="w-16 h-12 bg-red-600 rounded-full flex items-center justify-center text-white hover:bg-red-500 transition-colors" title="Sair da Chamada">
-                <i class="fas fa-phone-slash"></i>
-            </button>
+        <div id="menu-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-10 hidden"></div>
+
+        <div class="flex h-full w-full">
+            <!-- Coluna da Lista de Chats -->
+            <div class="w-full md:w-1/3 lg:w-1/4 bg-white border-r border-gray-200 flex flex-col">
+                <header class="p-2.5 border-b border-gray-200 flex-shrink-0 flex items-center space-x-2">
+                    <button id="hamburger-menu-button" class="p-2 rounded-lg hover:bg-gray-200">
+                        <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+                    </button>
+                    <div class="relative flex-grow">
+                        <input type="text" placeholder="Procurar" class="w-full bg-gray-100 rounded-lg py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        </div>
+                    </div>
+                </header>
+                <div class="flex-grow overflow-y-auto">
+                    <!-- Conteúdo da lista de chats (estático por enquanto) -->
+                    <div class="flex items-center p-4 border-l-4 border-blue-500 bg-blue-50 cursor-pointer">
+                        <img src="https://placehold.co/48x48/E2E8F0/4A5568?text=A" alt="Avatar" class="w-12 h-12 rounded-full mr-4">
+                        <div class="flex-grow">
+                            <h3 class="font-semibold text-gray-800">Ana Silva</h3>
+                            <p class="text-sm text-gray-600 truncate">Ótimo! Te vejo lá então.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Coluna da Janela de Chat -->
+            <main class="hidden md:flex flex-1 flex-col bg-gray-200" style="background-image: url('https://i.pinimg.com/736x/8c/98/99/8c98994518b575bfd8c949e91d20548b.jpg'); background-size: contain;">
+                <!-- Conteúdo do chat (estático por enquanto) -->
+                 <header class="bg-white p-4 border-b border-gray-200 flex justify-between items-center flex-shrink-0">
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-800">Ana Silva</h2>
+                        <p class="text-sm text-gray-500">online</p>
+                    </div>
+                </header>
+                 <div class="flex-1 p-6 overflow-y-auto"></div>
+                 <footer class="bg-white p-4 border-t border-gray-200 flex-shrink-0">
+                    <input type="text" placeholder="Escreva uma mensagem..." class="w-full bg-gray-100 rounded-lg py-2 px-4 focus:outline-none">
+                </footer>
+            </main>
         </div>
     </div>
     
-    <!-- Modal de Notificação -->
-    <div id="notification-modal" class="hidden fixed top-5 right-5 bg-green-500 text-white py-2 px-4 rounded-lg shadow-lg transition-opacity duration-300 z-50">
-        ID copiado para a área de transferência!
-    </div>
-    
-    <!-- Modal de Erro -->
-    <div id="error-modal" class="hidden fixed top-5 left-1/2 -translate-x-1/2 bg-red-600 text-white py-3 px-6 rounded-lg shadow-lg transition-opacity duration-300 z-50">
-        <span id="error-message"></span>
+    <!-- Modal de Perfil -->
+    <div id="profile-modal" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden items-center justify-center">
+        <div class="bg-white rounded-lg shadow-xl p-8 w-full max-w-sm text-center">
+            <h3 class="text-2xl font-bold mb-4">Meu Perfil</h3>
+            <img id="modal-avatar" src="https://placehold.co/96x96/E2E8F0/4A5568?text=P" alt="Avatar" class="w-24 h-24 rounded-full mx-auto mb-4">
+            <p class="text-xl font-semibold" id="modal-username">Nome de Usuário</p>
+            <p class="text-gray-600 mb-6" id="modal-email">email@exemplo.com</p>
+            <button id="close-profile-modal" class="w-full px-4 py-2 font-semibold text-white bg-blue-500 rounded-lg hover:bg-blue-600">Fechar</button>
+        </div>
     </div>
 
+    <!-- Firebase SDKs -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, collection, deleteDoc, getDocs, writeBatch, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        // Import the functions you need from the SDKs you need
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+        import { 
+            getAuth, 
+            createUserWithEmailAndPassword, 
+            signInWithEmailAndPassword, 
+            sendEmailVerification,
+            onAuthStateChanged,
+            signOut
+        } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
+        import {
+            getFirestore,
+            doc,
+            getDoc,
+            setDoc
+        } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
-        // --- Configuração do Firebase ---
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { apiKey: "YOUR_API_KEY", authDomain: "...", projectId: "..." };
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-discord-clone';
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyB98-bStjweF82UALPiw2YiwKKn1IhZASE",
+            authDomain: "videochamada11.firebaseapp.com",
+            projectId: "videochamada11",
+            storageBucket: "videochamada11.appspot.com",
+            messagingSenderId: "872635256324",
+            appId: "1:872635256324:web:12a6051efe8796730f2f51"
+        };
 
+        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        setLogLevel('debug'); // Habilita logs detalhados para depuração
 
-        // --- Variáveis Globais ---
-        let userId;
-        let localStream;
-        let screenStream;
-        let originalAudioTrack;
-        let isMuted = false;
-        let isSharingAudio = false;
-        const peerConnections = {};
-        const voiceChannelId = 'general';
+        // Elementos da UI
+        const authContainer = document.getElementById('auth-container');
+        const verificationContainer = document.getElementById('email-verification-container');
+        const usernameContainer = document.getElementById('username-container');
+        const mainAppContainer = document.getElementById('main-app-container');
+        const allContainers = [authContainer, verificationContainer, usernameContainer, mainAppContainer];
 
-        const servers = {
-            iceServers: [
-                { urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] },
-            ],
-            iceCandidatePoolSize: 10,
+        const loginForm = document.getElementById('login-form');
+        const signupForm = document.getElementById('signup-form');
+        const usernameForm = document.getElementById('username-form');
+        
+        const authError = document.getElementById('auth-error');
+        const usernameError = document.getElementById('username-error');
+        
+        const logoutButton = document.getElementById('logout-button');
+        const logoutVerificationBtn = document.getElementById('logout-verification');
+        
+        const hamburgerBtn = document.getElementById('hamburger-menu-button');
+        const sideMenu = document.getElementById('side-menu');
+        const menuOverlay = document.getElementById('menu-overlay');
+
+        const profileButton = document.getElementById('profile-button');
+        const profileModal = document.getElementById('profile-modal');
+        const closeProfileModal = document.getElementById('close-profile-modal');
+
+        // Função para mostrar um container e esconder os outros
+        const showContainer = (containerToShow) => {
+            allContainers.forEach(container => container.classList.add('hidden'));
+            containerToShow.classList.remove('hidden');
+        };
+        
+        // Função para mostrar erros
+        const showError = (element, message) => {
+            element.textContent = message;
+            element.classList.remove('hidden');
         };
 
-        // --- Elementos da UI ---
-        const ui = {
-            voiceChannel: document.getElementById('voice-channel'),
-            videosGrid: document.getElementById('videos-grid'),
-            placeholderContent: document.getElementById('placeholder-content'),
-            callControls: document.getElementById('call-controls'),
-            connectionStatus: document.getElementById('connection-status'),
-            userIdDisplay: document.getElementById('user-id-display'),
-            copyIdButton: document.getElementById('copy-id-button'),
-            notificationModal: document.getElementById('notification-modal'),
-            errorModal: document.getElementById('error-modal'),
-            errorMessage: document.getElementById('error-message'),
-            toggleMicButton: document.getElementById('toggle-mic-button'),
-            shareAudioButton: document.getElementById('share-audio-button'),
-            leaveCallButton: document.getElementById('leave-call-button'),
-        };
+        // Lógica de troca entre Login e Cadastro
+        document.getElementById('show-signup').addEventListener('click', (e) => {
+            e.preventDefault();
+            loginForm.classList.add('hidden');
+            signupForm.classList.remove('hidden');
+        });
 
-        // --- Funções Principais ---
+        // Gerenciador de estado de autenticação
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                if (user.emailVerified) {
+                    // Usuário logado e verificado
+                    const userDocRef = doc(db, "users", user.uid);
+                    const userDocSnap = await getDoc(userDocRef);
 
-        async function main() {
-            try {
-                // Autentica o usuário. Usa o token customizado se disponível, senão, anonimamente.
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (error) {
-                console.error("Authentication failed:", error);
-                showError("Falha na autenticação.");
-            }
-            
-            onAuthStateChanged(auth, async (user) => {
-                if (user) {
-                    userId = user.uid;
-                    ui.userIdDisplay.textContent = `${userId}`; // Mostra o ID completo
-                    ui.copyIdButton.onclick = () => copyToClipboard(userId);
-                    
-                    await cleanUpFirestoreData(userId);
-                } else {
-                    console.log("Usuário desconectado.");
-                    ui.userIdDisplay.textContent = 'Desconectado';
-                }
-            });
-        }
-
-        async function joinVoiceChannel() {
-            if (!userId) {
-                showError("Você precisa estar autenticado para entrar.");
-                console.error("Usuário não autenticado.");
-                return;
-            }
-
-            try {
-                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                originalAudioTrack = localStream.getAudioTracks()[0];
-                addVideoStream(userId, localStream, true);
-
-                ui.placeholderContent.classList.add('hidden');
-                ui.callControls.classList.remove('hidden');
-                ui.connectionStatus.textContent = 'Conectado';
-                ui.connectionStatus.className = 'text-xs text-green-500';
-
-                // CORREÇÃO: Usa o caminho público do Firestore
-                const basePath = `artifacts/${appId}/public/data/channels/${voiceChannelId}`;
-                const membersCol = collection(db, `${basePath}/members`);
-                const signalsCol = collection(db, `${basePath}/signals/${userId}`);
-
-                await setDoc(doc(membersCol, userId), { id: userId, joinedAt: new Date() });
-
-                onSnapshot(membersCol, (snapshot) => {
-                    snapshot.docChanges().forEach(async (change) => {
-                        const remoteUserId = change.doc.id;
-                        if (remoteUserId === userId) return;
-
-                        if (change.type === 'added') {
-                            console.log(`Novo membro detectado: ${remoteUserId}. Criando conexão.`);
-                            createPeerConnection(remoteUserId, true);
-                        }
-                        if (change.type === 'removed') {
-                            console.log(`Membro ${remoteUserId} saiu. Fechando conexão.`);
-                            closePeerConnection(remoteUserId);
-                        }
-                    });
-                });
-
-                onSnapshot(signalsCol, (snapshot) => {
-                    snapshot.docChanges().forEach(async (change) => {
-                        if (change.type === 'added') {
-                            const data = change.doc.data();
-                            const remoteUserId = data.from;
-                            
-                            if (!peerConnections[remoteUserId] && (data.offer || data.iceCandidate)) {
-                                 createPeerConnection(remoteUserId, false);
-                            }
-                            
-                            const pc = peerConnections[remoteUserId];
-                            if(!pc) return;
-
-                            if (data.offer) {
-                                console.log(`Recebendo oferta de ${remoteUserId}`);
-                                await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
-                                const answer = await pc.createAnswer();
-                                await pc.setLocalDescription(answer);
-                                await sendSignal(remoteUserId, { answer: pc.localDescription.toJSON() });
-                            } else if (data.answer) {
-                                console.log(`Recebendo resposta de ${remoteUserId}`);
-                                if (pc.signalingState !== 'stable') {
-                                    await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
-                                }
-                            } else if (data.iceCandidate) {
-                                try {
-                                    await pc.addIceCandidate(new RTCIceCandidate(data.iceCandidate));
-                                } catch (e) {
-                                    console.error('Erro ao adicionar ICE candidate:', e);
-                                }
-                            }
-                            await deleteDoc(change.doc.ref);
-                        }
-                    });
-                });
-
-            } catch (error) {
-                console.error("Erro ao entrar no canal de voz:", error);
-                showError("Câmera/microfone não acessível. Verifique as permissões.");
-            }
-        }
-        
-        function createPeerConnection(remoteUserId, isInitiator) {
-            if (peerConnections[remoteUserId]) return;
-
-            console.log(`Criando PeerConnection para ${remoteUserId}. Iniciador: ${isInitiator}`);
-            const pc = new RTCPeerConnection(servers);
-            peerConnections[remoteUserId] = pc;
-
-            localStream.getTracks().forEach(track => {
-                pc.addTrack(track, localStream);
-            });
-
-            pc.onicecandidate = event => {
-                if (event.candidate) {
-                    sendSignal(remoteUserId, { iceCandidate: event.candidate.toJSON() });
-                }
-            };
-
-            pc.ontrack = event => {
-                console.log(`Track recebida de ${remoteUserId}`);
-                const remoteStream = event.streams[0];
-                addVideoStream(remoteUserId, remoteStream);
-            };
-
-            pc.oniceconnectionstatechange = () => {
-                if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'closed') {
-                     console.log(`Conexão com ${remoteUserId} falhou/fechou.`);
-                     closePeerConnection(remoteUserId);
-                }
-            };
-
-            if (isInitiator) {
-                pc.createOffer()
-                    .then(offer => pc.setLocalDescription(offer))
-                    .then(() => {
-                        sendSignal(remoteUserId, { offer: pc.localDescription.toJSON() });
-                    })
-                    .catch(e => console.error("Erro ao criar oferta:", e));
-            }
-        }
-
-        async function sendSignal(toUserId, data) {
-            const signalData = { ...data, from: userId, timestamp: new Date() };
-            // CORREÇÃO: Usa o caminho público do Firestore
-            const signalDocRef = doc(collection(db, `artifacts/${appId}/public/data/channels/${voiceChannelId}/signals/${toUserId}`));
-            await setDoc(signalDocRef, signalData);
-        }
-        
-        async function leaveVoiceChannel() {
-            Object.keys(peerConnections).forEach(remoteUserId => {
-                closePeerConnection(remoteUserId);
-            });
-
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
-                localStream = null;
-            }
-            if (screenStream) {
-                screenStream.getTracks().forEach(track => track.stop());
-                screenStream = null;
-            }
-
-            ui.videosGrid.innerHTML = '';
-            ui.placeholderContent.classList.remove('hidden');
-            ui.callControls.classList.add('hidden');
-            ui.connectionStatus.textContent = 'Desconectado';
-            ui.connectionStatus.className = 'text-xs text-red-500';
-            isSharingAudio = false;
-            updateShareButton();
-
-            if (userId) {
-                // CORREÇÃO: Usa o caminho público do Firestore
-                const memberDoc = doc(db, `artifacts/${appId}/public/data/channels/${voiceChannelId}/members`, userId);
-                await deleteDoc(memberDoc);
-            }
-             console.log("Saiu do canal de voz.");
-        }
-
-        function closePeerConnection(remoteUserId) {
-            if (peerConnections[remoteUserId]) {
-                peerConnections[remoteUserId].close();
-                delete peerConnections[remoteUserId];
-            }
-            const videoElement = document.getElementById(`video-${remoteUserId}`);
-            if (videoElement) {
-                videoElement.remove();
-            }
-        }
-
-        async function toggleMicrophone() {
-            if (!localStream) return;
-            isMuted = !isMuted;
-            localStream.getAudioTracks().forEach(track => track.enabled = !isMuted);
-            
-            const icon = ui.toggleMicButton.querySelector('i');
-            icon.className = isMuted ? 'fas fa-microphone-slash' : 'fas fa-microphone';
-            ui.toggleMicButton.classList.toggle('bg-red-600', isMuted);
-            ui.toggleMicButton.classList.toggle('bg-gray-600', !isMuted);
-        }
-
-        async function shareAudio() {
-            if (isSharingAudio) {
-                stopSharing();
-                return;
-            }
-
-            try {
-                screenStream = await navigator.mediaDevices.getDisplayMedia({
-                    video: true,
-                    audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 44100 }
-                });
-
-                const screenAudioTrack = screenStream.getAudioTracks()[0];
-                if (screenAudioTrack) {
-                    isSharingAudio = true;
-                    for (const peerId in peerConnections) {
-                        const pc = peerConnections[peerId];
-                        const sender = pc.getSenders().find(s => s.track && s.track.kind === 'audio');
-                        if (sender) {
-                            sender.replaceTrack(screenAudioTrack);
-                        }
+                    if (userDocSnap.exists() && userDocSnap.data().username) {
+                        // Usuário tem um nome de usuário, mostrar app principal
+                        showContainer(mainAppContainer);
+                        // Preencher dados do perfil
+                        const userData = userDocSnap.data();
+                        document.getElementById('menu-username').textContent = userData.username;
+                        document.getElementById('menu-email').textContent = userData.email;
+                        document.getElementById('modal-username').textContent = userData.username;
+                        document.getElementById('modal-email').textContent = userData.email;
+                    } else {
+                        // Usuário precisa definir um nome de usuário
+                        showContainer(usernameContainer);
                     }
-                    screenStream.getTracks().forEach(track => track.onended = () => stopSharing());
                 } else {
-                     showError("Áudio da aba/sistema não foi compartilhado. Tente novamente.");
-                     screenStream.getTracks().forEach(track => track.stop());
-                     screenStream = null;
+                    // Usuário logado mas não verificado
+                    showContainer(verificationContainer);
                 }
-                updateShareButton();
-            } catch (err) {
-                console.error("Erro ao compartilhar tela/áudio:", err);
-            }
-        }
-
-        function stopSharing() {
-            if (!isSharingAudio) return;
-            isSharingAudio = false;
-
-             for (const peerId in peerConnections) {
-                const pc = peerConnections[peerId];
-                const sender = pc.getSenders().find(s => s.track && s.track.kind === 'audio');
-                if (sender && originalAudioTrack) {
-                    sender.replaceTrack(originalAudioTrack);
-                }
-            }
-
-            if (screenStream) {
-                screenStream.getTracks().forEach(track => track.stop());
-                screenStream = null;
-            }
-            updateShareButton();
-        }
-
-        // --- Funções Auxiliares ---
-
-        function addVideoStream(id, stream, isLocal = false) {
-            if (document.getElementById(`video-${id}`)) return;
-
-            const container = document.createElement('div');
-            container.id = `video-${id}`;
-            container.className = 'video-container';
-
-            const video = document.createElement('video');
-            video.srcObject = stream;
-            video.autoplay = true;
-            video.playsInline = true;
-            video.muted = isLocal;
-            if (isLocal) {
-                 video.style.transform = "scaleX(-1)";
-            }
-
-            const label = document.createElement('div');
-            label.className = 'user-label';
-            label.textContent = isLocal ? 'Você' : `User ${id.substring(0, 4)}`;
-
-            container.appendChild(video);
-            container.appendChild(label);
-            ui.videosGrid.appendChild(container);
-        }
-
-        function updateShareButton() {
-            const icon = ui.shareAudioButton.querySelector('i');
-            if (isSharingAudio) {
-                ui.shareAudioButton.classList.add('bg-green-600');
-                ui.shareAudioButton.classList.remove('bg-gray-600');
-                icon.className = 'fas fa-stop-circle';
-                ui.shareAudioButton.title = "Parar Compartilhamento";
             } else {
-                ui.shareAudioButton.classList.remove('bg-green-600');
-                ui.shareAudioButton.classList.add('bg-gray-600');
-                icon.className = 'fas fa-desktop';
-                ui.shareAudioButton.title = "Compartilhar Áudio/Tela";
+                // Nenhum usuário logado
+                showContainer(authContainer);
             }
-        }
-        
-        function copyToClipboard(text) {
-            const textArea = document.createElement("textarea");
-            textArea.value = text;
-            document.body.appendChild(textArea);
-            textArea.focus();
-            textArea.select();
-            try {
-                document.execCommand('copy');
-                showNotification("ID copiado para a área de transferência!");
-            } catch (err) {
-                console.error('Falha ao copiar texto: ', err);
-                showError("Falha ao copiar o ID.");
-            }
-            document.body.removeChild(textArea);
-        }
+        });
 
-        function showNotification(message) {
-            ui.notificationModal.textContent = message;
-            ui.notificationModal.classList.remove('hidden');
-            ui.notificationModal.classList.add('opacity-100');
-            setTimeout(() => {
-                ui.notificationModal.classList.remove('opacity-100');
-                setTimeout(() => ui.notificationModal.classList.add('hidden'), 150);
-            }, 2000);
-        }
-        
-        function showError(message) {
-            ui.errorMessage.textContent = message;
-            ui.errorModal.classList.remove('hidden');
-            ui.errorModal.classList.add('opacity-100');
-            setTimeout(() => {
-                ui.errorModal.classList.remove('opacity-100');
-                setTimeout(() => ui.errorModal.classList.add('hidden'), 150);
-            }, 4000);
-        }
-        
-        async function cleanUpFirestoreData(currentUserId) {
-            // CORREÇÃO: Usa o caminho público do Firestore
-            const basePath = `artifacts/${appId}/public/data/channels/${voiceChannelId}`;
-            await deleteDoc(doc(db, `${basePath}/members`, currentUserId));
+        // Cadastro
+        signupForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = document.getElementById('signup-email').value;
+            const password = document.getElementById('signup-password').value;
             
-            const signalsQuery = collection(db, `${basePath}/signals/${currentUserId}`);
-            const signalsSnapshot = await getDocs(signalsQuery);
-            const batch = writeBatch(db);
-            signalsSnapshot.docs.forEach(doc => batch.delete(doc.ref));
-            await batch.commit();
-            console.log("Dados antigos do Firestore limpos.");
-        }
-        
-        // --- Listeners de Eventos da UI ---
-        ui.voiceChannel.addEventListener('click', joinVoiceChannel);
-        ui.leaveCallButton.addEventListener('click', leaveVoiceChannel);
-        ui.toggleMicButton.addEventListener('click', toggleMicrophone);
-        ui.shareAudioButton.addEventListener('click', shareAudio);
-        
-        window.addEventListener('beforeunload', leaveVoiceChannel);
+            authError.classList.add('hidden');
 
-        // --- Inicialização ---
-        main();
+            createUserWithEmailAndPassword(auth, email, password)
+                .then((userCredential) => {
+                    sendEmailVerification(userCredential.user)
+                        .then(() => {
+                           alert("Link de verificação enviado! Por favor, cheque seu e-mail.");
+                           signOut(auth); // Desloga para forçar o login após verificação
+                        });
+                })
+                .catch((error) => {
+                    showError(authError, `Erro no cadastro: ${error.message}`);
+                });
+        });
+
+        // Login
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            
+            authError.classList.add('hidden');
+
+            signInWithEmailAndPassword(auth, email, password)
+                .catch((error) => {
+                    showError(authError, `Erro no login: ${error.message}`);
+                });
+        });
+
+        // Definir Nome de Usuário
+        usernameForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username-input').value.trim().toLowerCase();
+            const user = auth.currentUser;
+
+            if (!user) return;
+            if (username.length < 3) {
+                 showError(usernameError, "O nome de usuário deve ter pelo menos 3 caracteres.");
+                 return;
+            }
+            
+            usernameError.classList.add('hidden');
+
+            // Verificar se o nome de usuário já existe
+            const usernameDocRef = doc(db, "usernames", username);
+            const usernameDocSnap = await getDoc(usernameDocRef);
+
+            if (usernameDocSnap.exists()) {
+                showError(usernameError, "Este nome de usuário já está em uso. Tente outro.");
+            } else {
+                // Salvar o nome de usuário
+                const userDocRef = doc(db, "users", user.uid);
+                await setDoc(userDocRef, { username: username, email: user.email });
+                await setDoc(usernameDocRef, { uid: user.uid });
+                // Força a re-verificação do estado de autenticação para ir para o app
+                onAuthStateChanged(auth, auth.currentUser);
+                window.location.reload(); // Recarrega a página para garantir a transição
+            }
+        });
+
+        // Logout
+        const handleLogout = () => {
+            signOut(auth).catch((error) => console.error("Erro ao sair:", error));
+        };
+        logoutButton.addEventListener('click', handleLogout);
+        logoutVerificationBtn.addEventListener('click', handleLogout);
+
+        // Lógica do Menu Lateral
+        hamburgerBtn.addEventListener('click', () => {
+            sideMenu.classList.add('open');
+            menuOverlay.classList.remove('hidden');
+        });
+
+        menuOverlay.addEventListener('click', () => {
+            sideMenu.classList.remove('open');
+            menuOverlay.classList.add('hidden');
+        });
+
+        // Lógica do Modal de Perfil
+        profileButton.addEventListener('click', () => {
+            profileModal.classList.remove('hidden');
+            profileModal.classList.add('flex');
+        });
+        closeProfileModal.addEventListener('click', () => {
+             profileModal.classList.add('hidden');
+             profileModal.classList.remove('flex');
+        });
 
     </script>
 </body>
