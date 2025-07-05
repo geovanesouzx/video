@@ -3,130 +3,158 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Clone do WhatsApp</title>
+    <title>Chat App - Clone</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body, html { height: 100%; margin: 0; font-family: sans-serif; }
-        .hidden { display: none; }
-        /* Animações para transição de tela */
-        @keyframes slide-in {
-            from { transform: translateX(100%); }
-            to { transform: translateX(0); }
+        :root {
+            --background-light: #F0F2F5;
+            --background-dark: #111B21;
+            --panel-header-light: #E9EDEF;
+            --panel-header-dark: #202C33;
+            --chat-background-light: #EFEAE2;
+            --chat-background-dark: #0B141A;
+            --primary-green: #008069;
+            --primary-green-darker: #00A884;
+            --text-light: #3B4A54;
+            --text-dark: #E9EDEF;
+            --bubble-outgoing-light: #D9FDD3;
+            --bubble-outgoing-dark: #005C4B;
+            --bubble-incoming-light: #FFFFFF;
+            --bubble-incoming-dark: #202C33;
         }
-        @keyframes slide-out {
-            from { transform: translateX(0); }
-            to { transform: translateX(-100%); }
+        html {
+            height: 100%;
         }
-        .slide-in { animation: slide-in 0.3s forwards; }
-        .slide-out { animation: slide-out 0.3s forwards; }
+        body {
+            height: 100%;
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            background-color: var(--background-light);
+            color: var(--text-light);
+            overflow: hidden;
+        }
+        .dark body {
+            background-color: var(--background-dark);
+            color: var(--text-dark);
+        }
+        .hidden { display: none !important; }
+
+        /* Chat background pattern */
+        .chat-bg-pattern {
+            background-color: var(--chat-background-light);
+            background-image: url("data:image/svg+xml,%3Csvg width='400' height='400' viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23BDBDBD' fill-opacity='0.12' fill-rule='evenodd'%3E%3Cpath d='M0 400V0h400v400H0zM194 200h12v12h-12z'/%3E%3C/g%3E%3C/svg%3E");
+        }
+        .dark .chat-bg-pattern {
+            background-color: var(--chat-background-dark);
+            background-image: url("data:image/svg+xml,%3Csvg width='400' height='400' viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23FFFFFF' fill-opacity='0.06' fill-rule='evenodd'%3E%3Cpath d='M0 400V0h400v400H0zM194 200h12v12h-12z'/%3E%3C/g%3E%3C/svg%3E");
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+        .dark ::-webkit-scrollbar-thumb { background: #444; }
+
+        /* Animations for mobile view transitions */
+        @keyframes slide-in-right { from { transform: translateX(100%); } to { transform: translateX(0); } }
+        @keyframes slide-out-left { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+        .slide-in { animation: slide-in-right 0.3s ease-out forwards; }
+        .slide-out { animation: slide-out-left 0.3s ease-out forwards; }
     </style>
 </head>
-<body class="bg-gray-100 dark:bg-gray-900">
+<body class="antialiased">
 
     <!-- Tela de Carregamento -->
-    <div id="loading-screen" class="flex h-screen w-full items-center justify-center">
-        <div class="flex items-center space-x-2 text-gray-500">
-            <i data-lucide="loader" class="animate-spin"></i><span>Carregando...</span>
+    <div id="loading-screen" class="flex h-full w-full items-center justify-center bg-white dark:bg-gray-900">
+        <div class="flex flex-col items-center space-y-4 text-gray-500">
+            <svg class="h-12 w-12 text-green-500" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+            <div class="flex items-center space-x-2">
+                <i data-lucide="loader" class="animate-spin h-5 w-5"></i>
+                <span>Carregando...</span>
+            </div>
         </div>
     </div>
 
     <!-- Tela de Login -->
-    <div id="login-screen" class="hidden h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <div class="w-full max-w-sm p-8 bg-white dark:bg-gray-800 rounded-lg shadow-xl">
-            <h1 class="text-2xl font-bold text-center text-gray-800 dark:text-gray-200 mb-2">Bem-vindo!</h1>
-            <p class="text-center text-gray-500 dark:text-gray-400 mb-6">Crie seu nome de usuário para começar.</p>
+    <div id="login-screen" class="hidden h-full w-full items-center justify-center bg-gray-100 dark:bg-gray-900 p-4">
+        <div class="w-full max-w-md p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl text-center">
+            <svg class="h-16 w-16 text-green-500 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+            <h1 class="text-3xl font-bold text-gray-800 dark:text-gray-200 mb-2">Bem-vindo ao Chat</h1>
+            <p class="text-gray-500 dark:text-gray-400 mb-8">Crie seu nome de usuário para começar a conversar.</p>
             <form id="login-form">
-                <input id="username-input" type="text" placeholder="Digite seu nome de usuário" class="w-full bg-gray-100 dark:bg-gray-700 rounded-md py-3 px-4 focus:outline-none text-gray-800 dark:text-gray-200 mb-4"/>
+                <input id="username-input" type="text" placeholder="Digite seu nome de usuário" class="w-full bg-gray-100 dark:bg-gray-700 rounded-lg py-3 px-4 focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-800 dark:text-gray-200 mb-4 text-center"/>
                 <p id="login-error" class="text-red-500 text-sm mb-4 hidden"></p>
-                <button type="submit" class="w-full bg-green-500 hover:bg-green-600 text-white rounded-md py-3 font-semibold transition-colors">Entrar no Chat</button>
+                <button type="submit" class="w-full bg-green-500 hover:bg-green-600 text-white rounded-lg py-3 font-semibold transition-all duration-300 transform hover:scale-105 shadow-md">Entrar</button>
             </form>
         </div>
     </div>
 
     <!-- Aplicativo Principal -->
-    <div id="main-app" class="hidden h-screen w-screen flex-col font-sans bg-gray-200 dark:bg-gray-900 text-sm">
-        <!-- Cabeçalho Principal -->
-        <header class="bg-white dark:bg-gray-800 shadow-md z-20 flex-shrink-0">
-            <div class="flex justify-between items-center p-3">
-                <h1 class="text-xl font-bold text-green-500">Chat App</h1>
-                <div class="text-xs text-gray-500 dark:text-gray-400">
-                    Logado como: <span id="current-username" class="font-semibold"></span>
-                </div>
-            </div>
-            <nav id="tab-navigation" class="flex">
-                <!-- Botões das Abas -->
-            </nav>
-        </header>
-
-        <!-- Conteúdo Principal -->
-        <main class="flex-1 overflow-hidden relative">
-            <!-- Aba de Conversas -->
-            <div id="view-chats" class="w-full h-full flex flex-col">
-                <header class="p-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0 flex justify-between items-center">
-                    <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Conversas</h2>
-                    <button id="add-contact-btn" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
-                        <i data-lucide="plus-circle"></i>
-                    </button>
-                </header>
-                <div id="contacts-list" class="flex-1 overflow-y-auto"></div>
-            </div>
-
-            <!-- Aba de Adicionar Contato -->
-            <div id="view-add-contact" class="hidden absolute top-0 left-0 w-full h-full bg-white dark:bg-gray-800 z-30 flex-col">
-                 <header class="p-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0 flex items-center">
-                    <button id="back-to-chats-btn" class="p-2 mr-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
-                        <i data-lucide="arrow-left"></i>
-                    </button>
-                    <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Adicionar Contato</h2>
-                </header>
-                <div class="p-3">
-                    <input id="search-all-users-input" type="text" placeholder="Pesquisar por nome de usuário..." class="w-full bg-gray-100 dark:bg-gray-700 rounded-full py-2 px-4 focus:outline-none text-gray-800 dark:text-gray-200"/>
-                </div>
-                <div id="search-results-list" class="flex-1 overflow-y-auto"></div>
-            </div>
+    <div id="main-app" class="hidden h-full w-full">
+        <div class="flex h-full w-full max-w-7xl mx-auto bg-white dark:bg-gray-800 md:shadow-2xl md:rounded-2xl md:my-4">
             
-            <!-- Janela de Chat -->
-            <div id="view-chat-window" class="hidden absolute top-0 left-0 w-full h-full bg-gray-100 dark:bg-gray-900 z-40 flex-col">
-                <!-- O conteúdo do chat será renderizado aqui -->
-            </div>
-        </main>
+            <!-- Barra Lateral (Conversas e Adicionar Contato) -->
+            <aside id="sidebar" class="w-full md:w-1/3 lg:w-1/4 h-full flex flex-col border-r border-gray-200 dark:border-gray-700 transition-transform duration-300 ease-in-out">
+                <!-- Visão de Conversas -->
+                <div id="view-chats" class="w-full h-full flex flex-col">
+                    <header class="p-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0 flex justify-between items-center bg-gray-100 dark:bg-gray-800">
+                        <div>
+                            <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Conversas</h2>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Logado como: <span id="current-username" class="font-semibold"></span></p>
+                        </div>
+                        <button id="add-contact-btn" class="p-2 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                            <i data-lucide="user-plus"></i>
+                        </button>
+                    </header>
+                    <div id="contacts-list" class="flex-1 overflow-y-auto"></div>
+                </div>
+
+                <!-- Visão de Adicionar Contato -->
+                <div id="view-add-contact" class="hidden absolute md:relative top-0 left-0 w-full h-full bg-white dark:bg-gray-800 z-30 flex-col">
+                    <header class="p-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0 flex items-center bg-gray-100 dark:bg-gray-800">
+                        <button id="back-to-chats-btn" class="p-2 mr-2 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                            <i data-lucide="arrow-left"></i>
+                        </button>
+                        <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Adicionar Contato</h2>
+                    </header>
+                    <div class="p-3">
+                        <div class="relative">
+                            <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-5 w-5"></i>
+                            <input id="search-all-users-input" type="text" placeholder="Pesquisar por nome..." class="w-full bg-gray-100 dark:bg-gray-700 rounded-full py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-800 dark:text-gray-200"/>
+                        </div>
+                    </div>
+                    <div id="search-results-list" class="flex-1 overflow-y-auto"></div>
+                </div>
+            </aside>
+            
+            <!-- Área de Chat Principal -->
+            <main id="chat-area" class="w-full md:w-2/3 lg:w-3/4 h-full flex-col relative hidden md:flex">
+                <!-- Placeholder quando nenhum chat está aberto -->
+                <div id="chat-placeholder" class="w-full h-full flex flex-col items-center justify-center text-center p-8 bg-gray-100 dark:bg-gray-900/50">
+                    <svg class="h-24 w-24 text-gray-300 dark:text-gray-600" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 14V2H7v12l-4 4V2a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12l-4 4Z"/><path d="M21 14h-2.5a2 2 0 0 0-2 2.5V22l-4-4V14a2 2 0 0 1 2-2h7Z"/></svg>
+                    <h2 class="mt-6 text-2xl font-semibold text-gray-700 dark:text-gray-300">Seu App de Chat</h2>
+                    <p class="mt-2 text-gray-500 dark:text-gray-400">Selecione uma conversa para começar a enviar mensagens.</p>
+                </div>
+
+                <!-- Janela de Chat -->
+                <div id="view-chat-window" class="hidden w-full h-full flex-col">
+                    <!-- O conteúdo do chat será renderizado aqui pelo JS -->
+                </div>
+            </main>
+        </div>
     </div>
 
     <script type="module">
-        // #############################################################################
-        // ### INSTRUÇÕES IMPORTANTES PARA CORRIGIR O ERRO DE PERMISSÃO ###
-        // #############################################################################
-        // O erro "FirebaseError: Missing or insufficient permissions" acontece porque
-        // a sua base de dados Firestore não permite que a aplicação leia ou escreva dados.
-        //
-        // PARA CORRIGIR:
-        // 1. Vá para o seu painel do Firebase: https://console.firebase.google.com/
-        // 2. Selecione o seu projeto (`videochamada11`).
-        // 3. No menu à esquerda, vá para Build > Firestore Database.
-        // 4. Clique na aba "Regras" (Rules).
-        // 5. APAGUE todo o texto que está lá e COPIE E COLE o seguinte código:
-        //
-        // rules_version = '2';
-        // service cloud.firestore {
-        //   match /databases/{database}/documents {
-        //     // Esta regra permite que qualquer utilizador autenticado leia e escreva
-        //     // em qualquer parte da base de dados do seu projeto.
-        //     // É ideal para desenvolvimento e testes.
-        //     match /{document=**} {
-        //       allow read, write: if request.auth != null;
-        //     }
-        //   }
-        // }
-        //
-        // 6. Clique em "Publicar".
-        // 7. Recarregue a sua página. O erro deverá desaparecer.
-        // #############################################################################
-
+        // Importações do Firebase
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, doc, setDoc, getDoc, getDocs, onSnapshot, serverTimestamp, query, where, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // Configuração do Firebase
         const firebaseConfig = typeof __firebase_config !== 'undefined'
             ? JSON.parse(__firebase_config)
             : {
@@ -137,43 +165,64 @@
                 messagingSenderId: "872635256324",
                 appId: "1:872635256324:web:12a6051efe8796730f2f51"
             };
-
+        
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-whatsapp-clone-html';
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
 
+        // Estado da Aplicação
         let currentUser = null;
         let myContacts = [];
         let currentChatPartner = null;
         let unsubscribeContacts = () => {};
         let unsubscribeMessages = () => {};
 
+        // Seletor de conveniência
         const $ = (selector) => document.querySelector(selector);
 
-        // --- Lógica de Navegação e UI ---
+        // --- Lógica de Navegação e UI Responsiva ---
         
+        const isDesktop = () => window.matchMedia('(min-width: 768px)').matches;
+
         function showView(viewId) {
-            ['view-chats', 'view-add-contact', 'view-chat-window'].forEach(id => $(`#${id}`).classList.add('hidden'));
-            const view = $(`#${viewId}`);
-            if (view) {
-                view.classList.remove('hidden');
-                view.classList.add('slide-in');
+            if (isDesktop()) {
+                // Em desktop, as visões da barra lateral são trocadas no lugar
+                ['view-chats', 'view-add-contact'].forEach(id => $(`#${id}`).classList.add('hidden'));
+                $(`#${viewId}`).classList.remove('hidden');
+            } else {
+                // Em mobile, a barra lateral inteira desliza
+                const sidebar = $('#sidebar');
+                if (viewId === 'view-add-contact') {
+                    $('#view-chats').classList.add('hidden');
+                    $('#view-add-contact').classList.remove('hidden');
+                } else { // view-chats
+                    $('#view-add-contact').classList.add('hidden');
+                    $('#view-chats').classList.remove('hidden');
+                }
             }
         }
 
-        function goBack(fromViewId, toViewId) {
-            const fromView = $(`#${fromViewId}`);
-            if(fromView) {
-                fromView.classList.add('slide-out');
-                setTimeout(() => {
-                    fromView.classList.add('hidden');
-                    fromView.classList.remove('slide-out');
-                    showView(toViewId);
-                }, 300);
-            } else {
-                showView(toViewId);
+        function openChatArea() {
+            if (!isDesktop()) {
+                $('#sidebar').classList.add('-translate-x-full');
+                $('#chat-area').classList.remove('hidden');
+                $('#chat-area').classList.add('flex');
             }
+            $('#chat-placeholder').classList.add('hidden');
+            $('#view-chat-window').classList.remove('hidden');
+            $('#view-chat-window').classList.add('flex');
+        }
+
+        function closeChatArea() {
+            if (!isDesktop()) {
+                $('#sidebar').classList.remove('-translate-x-full');
+                $('#chat-area').classList.add('hidden');
+            }
+            $('#view-chat-window').classList.add('hidden');
+            $('#chat-placeholder').classList.remove('hidden');
+            currentChatPartner = null;
+            unsubscribeMessages();
         }
 
         // --- Funções de Renderização ---
@@ -182,12 +231,17 @@
             const listDiv = $('#contacts-list');
             if (myContacts.length > 0) {
                 listDiv.innerHTML = myContacts.map(contact => `
-                    <div data-contact-id="${contact.id}" data-contact-username="${contact.username}" class="contact-item flex items-center p-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700">
-                        <div class="w-12 h-12 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center mr-3"><i data-lucide="user"></i></div>
-                        <h3 class="font-semibold text-gray-800 dark:text-gray-200">${contact.username}</h3>
+                    <div data-contact-id="${contact.id}" data-contact-username="${contact.username}" class="contact-item flex items-center p-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700 transition-colors">
+                        <div class="w-12 h-12 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center mr-4 flex-shrink-0">
+                            <i data-lucide="user" class="text-gray-500 dark:text-gray-400"></i>
+                        </div>
+                        <div class="flex-grow">
+                            <h3 class="font-semibold text-gray-800 dark:text-gray-200">${contact.username}</h3>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 truncate">Última mensagem...</p>
+                        </div>
                     </div>`).join('');
             } else {
-                listDiv.innerHTML = `<p class="p-4 text-center text-gray-500">Nenhum contato adicionado. Clique em '+' para encontrar usuários.</p>`;
+                listDiv.innerHTML = `<p class="p-4 text-center text-gray-500">Nenhum contato. Clique em <i data-lucide="user-plus" class="inline-block h-4 w-4"></i> para encontrar usuários.</p>`;
             }
             lucide.createIcons();
             document.querySelectorAll('.contact-item').forEach(item => item.addEventListener('click', handleSelectChat));
@@ -195,15 +249,19 @@
 
         const renderSearchResults = (results) => {
             const listDiv = $('#search-results-list');
+            if(results.length === 0) {
+                 listDiv.innerHTML = `<p class="p-4 text-center text-gray-500">Nenhum usuário encontrado.</p>`;
+                 return;
+            }
             listDiv.innerHTML = results.map(user => {
                 const isContact = myContacts.some(c => c.id === user.id);
                 return `
-                <div class="flex items-center p-3 justify-between">
+                <div class="flex items-center p-3 justify-between border-b border-gray-200 dark:border-gray-700">
                     <div class="flex items-center">
-                        <div class="w-10 h-10 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center mr-3"><i data-lucide="user"></i></div>
+                        <div class="w-10 h-10 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center mr-3 flex-shrink-0"><i data-lucide="user"></i></div>
                         <span class="font-semibold text-gray-800 dark:text-gray-200">${user.username}</span>
                     </div>
-                    <button data-user-id="${user.id}" data-user-username="${user.username}" class="add-btn px-3 py-1 text-sm rounded-full ${isContact ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600 text-white'}" ${isContact ? 'disabled' : ''}>
+                    <button data-user-id="${user.id}" data-user-username="${user.username}" class="add-btn px-4 py-1.5 text-sm rounded-full transition-all ${isContact ? 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600 text-white'}" ${isContact ? 'disabled' : ''}>
                         ${isContact ? 'Adicionado' : 'Adicionar'}
                     </button>
                 </div>`;
@@ -214,20 +272,20 @@
 
         const renderChatWindow = () => {
             $('#view-chat-window').innerHTML = `
-                <header class="bg-white dark:bg-gray-800 p-3 shadow-sm flex items-center z-10 flex-shrink-0">
-                    <button id="back-to-chats-from-chat" class="p-2 mr-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"><i data-lucide="arrow-left"></i></button>
+                <header class="bg-gray-100 dark:bg-gray-800 p-3 shadow-sm flex items-center z-10 flex-shrink-0 border-b border-gray-200 dark:border-gray-700">
+                    <button id="back-to-chats-from-chat" class="p-2 mr-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 md:hidden"><i data-lucide="arrow-left"></i></button>
                     <div class="w-10 h-10 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center mr-3"><i data-lucide="user"></i></div>
                     <h2 class="font-semibold text-gray-800 dark:text-gray-200">${currentChatPartner.username}</h2>
                 </header>
-                <main id="messages-container" class="flex-1 overflow-y-auto p-4"></main>
-                <footer class="bg-white dark:bg-gray-800 p-3 flex-shrink-0">
+                <main id="messages-container" class="flex-1 overflow-y-auto p-4 chat-bg-pattern space-y-4"></main>
+                <footer class="bg-gray-100 dark:bg-gray-800 p-3 flex-shrink-0">
                     <form id="message-form" class="flex items-center">
-                        <input id="message-input" type="text" placeholder="Digite uma mensagem..." class="flex-1 bg-gray-100 dark:bg-gray-700 rounded-full py-2 px-4 focus:outline-none text-gray-800 dark:text-gray-200"/>
-                        <button type="submit" class="bg-green-500 hover:bg-green-600 text-white rounded-full p-3 ml-3"><i data-lucide="send"></i></button>
+                        <input id="message-input" type="text" placeholder="Digite uma mensagem..." class="flex-1 bg-white dark:bg-gray-700 rounded-full py-2.5 px-5 focus:outline-none text-gray-800 dark:text-gray-200" autocomplete="off"/>
+                        <button type="submit" class="bg-green-500 hover:bg-green-600 text-white rounded-full p-3 ml-3 transition-transform transform hover:scale-110"><i data-lucide="send"></i></button>
                     </form>
                 </footer>`;
             lucide.createIcons();
-            $('#back-to-chats-from-chat').addEventListener('click', () => goBack('view-chat-window', 'view-chats'));
+            $('#back-to-chats-from-chat').addEventListener('click', closeChatArea);
             $('#message-form').addEventListener('submit', handleSendMessage);
             listenForMessages();
         };
@@ -238,9 +296,12 @@
             const sorted = messages.sort((a,b) => (a.timestamp?.toMillis() || 0) - (b.timestamp?.toMillis() || 0));
             container.innerHTML = sorted.map(msg => {
                 const isSender = msg.senderId === currentUser.uid;
-                return `<div class="flex ${isSender ? 'justify-end' : 'justify-start'} mb-2">
-                    <div class="rounded-lg px-3 py-2 max-w-xs shadow ${isSender ? 'bg-green-100 dark:bg-green-800' : 'bg-white dark:bg-gray-700'}">
+                const time = msg.timestamp ? new Date(msg.timestamp.toMillis()).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
+                return `
+                <div class="flex ${isSender ? 'justify-end' : 'justify-start'}">
+                    <div class="rounded-lg px-3 py-2 max-w-md shadow-sm ${isSender ? 'bg-bubble-outgoing-light dark:bg-bubble-outgoing-dark' : 'bg-bubble-incoming-light dark:bg-bubble-incoming-dark'}">
                         <p class="text-sm text-gray-800 dark:text-gray-200">${msg.text}</p>
+                        <p class="text-xs text-right mt-1 ${isSender ? 'text-green-900/70 dark:text-gray-400' : 'text-gray-500 dark:text-gray-400'}">${time}</p>
                     </div>
                 </div>`;
             }).join('');
@@ -256,15 +317,19 @@
                 username: contactItem.dataset.contactUsername
             };
             renderChatWindow();
-            showView('view-chat-window');
+            openChatArea();
         };
 
         const handleSearchUsers = async () => {
-            const searchTerm = $('#search-all-users-input').value.toLowerCase();
+            const searchTerm = $('#search-all-users-input').value.trim().toLowerCase();
+            const listDiv = $('#search-results-list');
             if (searchTerm.length < 3) {
-                $('#search-results-list').innerHTML = '';
+                listDiv.innerHTML = `<p class="p-4 text-center text-gray-500">Digite pelo menos 3 caracteres.</p>`;
                 return;
             }
+            listDiv.innerHTML = `<div class="flex justify-center p-4"><i data-lucide="loader" class="animate-spin"></i></div>`;
+            lucide.createIcons();
+
             const usersRef = collection(db, `artifacts/${appId}/public/data/users`);
             const q = query(usersRef, where('username', '>=', searchTerm), where('username', '<=', searchTerm + '\uf8ff'));
             
@@ -272,10 +337,11 @@
                 const querySnapshot = await getDocs(q);
                 const results = querySnapshot.docs
                     .map(doc => ({ id: doc.id, ...doc.data() }))
-                    .filter(user => user.id !== currentUser.uid); // Excluir a si mesmo
+                    .filter(user => user.id !== currentUser.uid);
                 renderSearchResults(results);
             } catch (error) {
                 console.error("Erro ao pesquisar usuários:", error);
+                listDiv.innerHTML = `<p class="p-4 text-center text-red-500">Ocorreu um erro na busca.</p>`;
             }
         };
 
@@ -285,13 +351,12 @@
             const contactUsername = btn.dataset.userUsername;
             
             btn.disabled = true;
-            btn.textContent = 'Adicionando...';
+            btn.innerHTML = `<i data-lucide="loader" class="animate-spin h-4 w-4"></i>`;
+            lucide.createIcons();
 
             const batch = writeBatch(db);
-            // Adiciona o novo contato à minha lista
             const myContactRef = doc(db, `artifacts/${appId}/public/data/users/${currentUser.uid}/contacts`, contactId);
             batch.set(myContactRef, { username: contactUsername, id: contactId });
-            // Adiciona-me à lista do novo contato
             const theirContactRef = doc(db, `artifacts/${appId}/public/data/users/${contactId}/contacts`, currentUser.uid);
             batch.set(theirContactRef, { username: currentUser.username, id: currentUser.uid });
 
@@ -301,6 +366,7 @@
             } catch (error) {
                 console.error("Erro ao adicionar contato:", error);
                 btn.textContent = 'Erro!';
+                btn.disabled = false;
             }
         };
 
@@ -312,8 +378,17 @@
 
             const chatId = [currentUser.uid, currentChatPartner.id].sort().join('_');
             const messagesRef = collection(db, `artifacts/${appId}/public/data/chats/${chatId}/messages`);
-            await addDoc(messagesRef, { text, senderId: currentUser.uid, timestamp: serverTimestamp() });
+            
             input.value = '';
+            try {
+                await addDoc(messagesRef, { 
+                    text, 
+                    senderId: currentUser.uid, 
+                    timestamp: serverTimestamp() 
+                });
+            } catch (error) {
+                console.error("Erro ao enviar mensagem:", error);
+            }
         };
 
         function listenForContacts() {
@@ -322,6 +397,8 @@
             unsubscribeContacts = onSnapshot(contactsRef, (snapshot) => {
                 myContacts = snapshot.docs.map(doc => doc.data());
                 renderContactsList();
+            }, (error) => {
+                console.error("Erro ao ouvir contatos:", error);
             });
         }
 
@@ -329,19 +406,25 @@
             unsubscribeMessages();
             const chatId = [currentUser.uid, currentChatPartner.id].sort().join('_');
             const messagesRef = collection(db, `artifacts/${appId}/public/data/chats/${chatId}/messages`);
-            unsubscribeMessages = onSnapshot(messagesRef, (snapshot) => {
+            const q = query(messagesRef);
+
+            unsubscribeMessages = onSnapshot(q, (snapshot) => {
                 const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderMessages(messages);
+            }, (error) => {
+                console.error("Erro ao ouvir mensagens:", error);
             });
         }
 
-        // --- Inicialização ---
+        // --- Inicialização e Autenticação ---
 
         const initApp = (user) => {
             currentUser = user;
             $('#current-username').textContent = user.username;
             $('#loading-screen').classList.add('hidden');
+            $('#login-screen').classList.add('hidden');
             $('#main-app').classList.remove('hidden');
+            $('#main-app').classList.add('flex');
             showView('view-chats');
             listenForContacts();
         };
@@ -355,40 +438,86 @@
         window.onload = () => {
             lucide.createIcons();
 
-            // Event Listeners
+            // Event Listeners Globais
             $('#login-form').addEventListener('submit', async (e) => {
                 e.preventDefault();
-                const username = $('#username-input').value.trim();
+                const usernameInput = $('#username-input');
+                const username = usernameInput.value.trim();
+                const errorP = $('#login-error');
                 if(username.length < 3) {
-                    $('#login-error').textContent = 'Nome de usuário muito curto.';
-                    $('#login-error').classList.remove('hidden');
+                    errorP.textContent = 'O nome de usuário deve ter pelo menos 3 caracteres.';
+                    errorP.classList.remove('hidden');
                     return;
                 }
-                $('#login-error').classList.add('hidden');
-                // Quando o utilizador cria o perfil, guardamos o nome de utilizador no seu documento principal
-                await setDoc(doc(db, `artifacts/${appId}/public/data/users`, currentUser.uid), { id: currentUser.uid, username: username }, { merge: true });
-                initApp({ uid: currentUser.uid, username });
+                errorP.classList.add('hidden');
+                
+                try {
+                    await setDoc(doc(db, `artifacts/${appId}/public/data/users`, currentUser.uid), { id: currentUser.uid, username: username }, { merge: true });
+                    initApp({ uid: currentUser.uid, username });
+                } catch(error) {
+                    console.error("Erro ao salvar nome de usuário:", error);
+                    errorP.textContent = "Não foi possível salvar seu nome. Tente novamente.";
+                    errorP.classList.remove('hidden');
+                }
             });
 
             $('#add-contact-btn').addEventListener('click', () => showView('view-add-contact'));
-            $('#back-to-chats-btn').addEventListener('click', () => goBack('view-add-contact', 'view-chats'));
-            $('#search-all-users-input').addEventListener('input', handleSearchUsers);
+            $('#back-to-chats-btn').addEventListener('click', () => showView('view-chats'));
+            
+            let searchTimeout;
+            $('#search-all-users-input').addEventListener('input', () => {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(handleSearchUsers, 500);
+            });
 
+            // Lógica de Autenticação Principal
             onAuthStateChanged(auth, async (user) => {
                 if (user) {
+                    // Usuário está autenticado, prossiga para carregar os dados do app
                     const userRef = doc(db, `artifacts/${appId}/public/data/users`, user.uid);
-                    const userSnap = await getDoc(userRef);
-                    currentUser = { uid: user.uid }; // Define o UID básico
-                    if (userSnap.exists() && userSnap.data().username) {
-                        initApp({ uid: user.uid, ...userSnap.data() });
-                    } else {
-                        showLogin();
+                    try {
+                        const userSnap = await getDoc(userRef);
+                        currentUser = { uid: user.uid };
+                        if (userSnap.exists() && userSnap.data().username) {
+                            initApp({ uid: user.uid, ...userSnap.data() });
+                        } else {
+                            showLogin();
+                        }
+                    } catch (error) {
+                        console.error("Erro ao buscar dados do usuário:", error);
+                        $('#loading-screen').innerHTML = `
+                            <div class="text-center text-red-500 p-4 max-w-md">
+                                <h3 class="font-bold text-lg">Erro de Permissão do Firestore</h3>
+                                <p class="mt-2 text-gray-600 dark:text-gray-300">Não foi possível ler os dados. Isso geralmente acontece porque as <strong>Regras de Segurança</strong> do seu banco de dados Firestore não estão configuradas corretamente.</p>
+                                <p class="mt-4 text-left text-sm bg-gray-100 dark:bg-gray-800 p-3 rounded-lg">
+                                    <strong class="dark:text-gray-200">Solução Rápida:</strong><br>
+                                    1. Vá para o seu projeto no <a href="https://console.firebase.google.com/" target="_blank" class="text-blue-500 underline">Console do Firebase</a>.<br>
+                                    2. Navegue para <strong>Build > Firestore Database > Regras</strong>.<br>
+                                    3. Substitua as regras existentes por estas (para desenvolvimento):<br>
+                                    <code class="block bg-gray-200 dark:bg-gray-900 p-2 rounded mt-2 text-xs">
+                                        rules_version = '2';<br>
+                                        service cloud.firestore {<br>
+                                        &nbsp;&nbsp;match /databases/{database}/documents {<br>
+                                        &nbsp;&nbsp;&nbsp;&nbsp;match /{document=**} {<br>
+                                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;allow read, write: if request.auth != null;<br>
+                                        &nbsp;&nbsp;&nbsp;&nbsp;}<br>
+                                        &nbsp;&nbsp;}<br>
+                                        }
+                                    </code>
+                                </p>
+                            </div>`;
                     }
                 } else {
+                    // Usuário não está autenticado, tente fazer o login
                     try {
-                        await signInAnonymously(auth);
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await signInWithCustomToken(auth, __initial_auth_token);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+                        // onAuthStateChanged será chamado novamente após o login bem-sucedido
                     } catch (error) {
-                        console.error("Falha no login anônimo:", error);
+                        console.error("Falha no login inicial:", error);
                         $('#loading-screen').innerHTML = '<span>Falha na autenticação. Verifique as configurações do Firebase e recarregue.</span>';
                     }
                 }
