@@ -113,8 +113,6 @@
         import { getFirestore, collection, addDoc, doc, setDoc, getDoc, onSnapshot, serverTimestamp, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- Configuração do Firebase ("A Chave") ---
-        // A variável __firebase_config é fornecida pelo ambiente do Canvas.
-        // Caso contrário, usa a chave que você forneceu.
         const firebaseConfig = typeof __firebase_config !== 'undefined'
             ? JSON.parse(__firebase_config)
             : {
@@ -136,6 +134,7 @@
         // Variáveis de estado do aplicativo
         let currentUser = null;
         let selectedChatPartner = null;
+        let allUsers = []; // Armazena a lista completa de usuários
         let unsubscribeUsers = () => {};
         let unsubscribeMessages = () => {};
 
@@ -150,6 +149,7 @@
         const usersListDiv = document.getElementById('users-list');
         const chatWindowDiv = document.getElementById('chat-window');
         const tabNavigation = document.getElementById('tab-navigation');
+        const searchUsersInput = document.getElementById('search-users-input');
 
         // --- Funções de Renderização ---
 
@@ -188,8 +188,6 @@
                     </form>
                 </footer>`;
             lucide.createIcons();
-
-            // Adicionar event listener para o formulário de mensagem
             document.getElementById('message-form').addEventListener('submit', handleSendMessage);
         };
         
@@ -216,13 +214,12 @@
                     </div>`;
             }).join('');
             
-            // Scroll para a última mensagem
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         };
 
-        const renderUsersList = (users) => {
-            if (users.length > 0) {
-                 usersListDiv.innerHTML = users.map(user => `
+        const renderUsersList = (usersToRender) => {
+            if (usersToRender.length > 0) {
+                 usersListDiv.innerHTML = usersToRender.map(user => `
                     <div data-userid="${user.id}" class="user-item flex items-center p-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 ${selectedChatPartner?.id === user.id ? 'bg-green-50 dark:bg-green-900/50' : ''}">
                         <div class="w-12 h-12 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center mr-3">
                            <i data-lucide="user" class="text-white dark:text-gray-300"></i>
@@ -236,17 +233,15 @@
             } else {
                 usersListDiv.innerHTML = `
                     <div class="p-4 text-center text-gray-500 dark:text-gray-400">
-                        <p>Nenhum usuário encontrado.</p>
-                        <p class="text-xs mt-2">Compartilhe o link para que outros entrem.</p>
+                        <p>Nenhum usuário correspondente.</p>
                     </div>`;
             }
             lucide.createIcons();
 
-            // Adicionar event listeners para os itens da lista de usuários
             document.querySelectorAll('.user-item').forEach(item => {
                 item.addEventListener('click', () => {
                     const userId = item.getAttribute('data-userid');
-                    const user = users.find(u => u.id === userId);
+                    const user = allUsers.find(u => u.id === userId); // Procura na lista completa
                     if (user) {
                         handleSelectChat(user);
                     }
@@ -267,12 +262,17 @@
 
         // --- Lógica do Aplicativo ---
 
+        const displayUsers = () => {
+            const searchTerm = searchUsersInput.value.toLowerCase();
+            const filteredUsers = allUsers.filter(user => 
+                user.username && user.username.toLowerCase().includes(searchTerm)
+            );
+            renderUsersList(filteredUsers);
+        };
+
         const handleSelectChat = (partner) => {
             selectedChatPartner = partner;
-            renderUsersList(Array.from(usersListDiv.querySelectorAll('.user-item')).map(el => ({
-                id: el.dataset.userid,
-                username: el.querySelector('h3').textContent
-            }))); // Re-render a lista para destacar o selecionado
+            displayUsers(); // Re-renderiza a lista para destacar o selecionado
             renderChatWindow(partner);
             listenForMessages();
         };
@@ -339,20 +339,20 @@
         // --- Listeners do Firebase ---
 
         function listenForUsers() {
-            unsubscribeUsers(); // Cancela listener anterior
+            unsubscribeUsers();
             const usersCollectionRef = collection(db, `artifacts/${appId}/public/data/users`);
             const q = query(usersCollectionRef, where("id", "!=", currentUser.uid));
             
             unsubscribeUsers = onSnapshot(q, (snapshot) => {
-                const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderUsersList(users);
+                allUsers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                displayUsers(); // Renderiza a lista filtrada
             }, (error) => {
                 console.error("Erro ao buscar usuários:", error);
             });
         }
 
         function listenForMessages() {
-            unsubscribeMessages(); // Cancela listener anterior
+            unsubscribeMessages();
             if (!currentUser || !selectedChatPartner) return;
             
             const chatId = [currentUser.uid, selectedChatPartner.id].sort().join('_');
@@ -369,9 +369,8 @@
         // --- Inicialização e Event Listeners ---
 
         window.onload = () => {
-            lucide.createIcons(); // Renderiza ícones iniciais
+            lucide.createIcons();
 
-            // Listener para o formulário de login
             loginForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 const username = usernameInput.value.trim();
@@ -384,14 +383,14 @@
                 handleSetUsername(username);
             });
             
-            // Listener para a navegação por abas
+            searchUsersInput.addEventListener('input', displayUsers);
+
             tabNavigation.addEventListener('click', (e) => {
                 const button = e.target.closest('.tab-button');
                 if (!button) return;
                 
                 const tabId = button.dataset.tab;
                 
-                // Atualiza botões
                 document.querySelectorAll('.tab-button').forEach(btn => {
                     btn.classList.remove('text-green-500', 'border-green-500');
                     btn.classList.add('text-gray-500', 'dark:text-gray-400');
@@ -399,7 +398,6 @@
                 button.classList.add('text-green-500', 'border-green-500');
                 button.classList.remove('text-gray-500', 'dark:text-gray-400');
 
-                // Atualiza conteúdo
                 document.querySelectorAll('#main-app > main > div').forEach(content => {
                     content.classList.add('hidden');
                 });
@@ -407,7 +405,6 @@
                 const activeContent = document.getElementById(`tab-content-${tabId}`);
                 if (activeContent) {
                     activeContent.classList.remove('hidden');
-                    // Renderiza conteúdo placeholder se necessário
                     if (tabId !== 'chats' && activeContent.innerHTML === '') {
                         const placeholders = {
                             status: { title: 'Status', icon: 'circle-dashed' },
@@ -420,7 +417,6 @@
                 }
             });
 
-            // Gerenciamento de Autenticação
             onAuthStateChanged(auth, async (firebaseUser) => {
                 if (firebaseUser) {
                     const userRef = doc(db, `artifacts/${appId}/public/data/users`, firebaseUser.uid);
@@ -435,7 +431,6 @@
                         showLoginScreen();
                     }
                 } else {
-                    // Tenta fazer login anônimo se não estiver autenticado
                     try {
                         const authToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
                         if (authToken) {
