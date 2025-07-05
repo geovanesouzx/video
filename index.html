@@ -106,7 +106,7 @@
             apiKey: "AIzaSyB98-bStjweF82UALPiw2YiwKKn1IhZASE",
             authDomain: "videochamada11.firebaseapp.com",
             projectId: "videochamada11",
-            storageBucket: "videochamada11.appspot.com",
+            storageBucket: "videochamada11.appspot.com", // Corrected to .appspot.com which is standard
             messagingSenderId: "872635256324",
             appId: "1:872635256324:web:12a6051efe8796730f2f51"
         };
@@ -301,6 +301,8 @@
                         });
                     }
                 } else {
+                    // This case handles users created by other means or first-time logins after signup.
+                    // The signup form itself should create the document.
                     const newUsername = user.email.split('@')[0];
                     state.userData = { 
                         uid: user.uid, 
@@ -322,10 +324,16 @@
         async function setupMainApp() {
             renderChatListColumn();
             renderSideMenu(state.userData);
-            renderWelcomeScreen();
             showScreen('main-app-container');
             setupMainAppListeners();
             listenForUserChats();
+            
+            // FIX: Explicitly set the correct initial view based on screen size
+            if (window.innerWidth >= 768) {
+                renderWelcomeScreen(); // Show welcome screen on desktop
+            } else {
+                ui.chatWindow.classList.add('hidden'); // Ensure chat window is hidden on mobile
+            }
         }
 
         // --- LÓGICA DE CHAT ---
@@ -399,9 +407,9 @@
             renderChatWindow(chatId, chatData.otherUser.username);
             listenForMessages(chatId);
             
-            if (window.innerWidth < 768) {
-                ui.chatListColumn.classList.add('hidden');
-            }
+            // This logic correctly handles the view switch on all screen sizes
+            ui.chatListColumn.classList.add('hidden');
+            ui.chatListColumn.classList.remove('flex');
             ui.chatWindow.classList.remove('hidden');
             ui.chatWindow.classList.add('flex');
             
@@ -471,7 +479,26 @@
             const showError = (msg) => { authErrorDiv.textContent = msg; authErrorDiv.classList.remove('hidden'); };
 
             loginForm?.addEventListener('submit', async (e) => { e.preventDefault(); try { await signInWithEmailAndPassword(auth, loginForm.elements['login-email'].value, loginForm.elements['login-password'].value); } catch (error) { showError("Email ou senha inválidos."); } });
-            signupForm?.addEventListener('submit', async (e) => { e.preventDefault(); try { await createUserWithEmailAndPassword(auth, signupForm.elements['signup-email'].value, signupForm.elements['signup-password'].value); } catch (error) { showError("Erro ao criar conta: " + error.message); } });
+            
+            signupForm?.addEventListener('submit', async (e) => { 
+                e.preventDefault(); 
+                try { 
+                    const userCredential = await createUserWithEmailAndPassword(auth, signupForm.elements['signup-email'].value, signupForm.elements['signup-password'].value);
+                    // FIX: Create user document immediately on signup
+                    const newUsername = userCredential.user.email.split('@')[0];
+                    const newUserDoc = {
+                        uid: userCredential.user.uid,
+                        email: userCredential.user.email,
+                        username: newUsername,
+                        username_lowercase: newUsername.toLowerCase(),
+                        createdAt: serverTimestamp()
+                    };
+                    await setDoc(doc(db, "users", userCredential.user.uid), newUserDoc);
+                } catch (error) { 
+                    showError("Erro ao criar conta: " + error.message); 
+                } 
+            });
+
             document.getElementById('show-signup-link')?.addEventListener('click', (e) => { e.preventDefault(); document.getElementById('login-view').classList.add('hidden'); document.getElementById('signup-view').classList.remove('hidden'); });
             document.getElementById('show-login-link')?.addEventListener('click', (e) => { e.preventDefault(); document.getElementById('signup-view').classList.add('hidden'); document.getElementById('login-view').classList.remove('hidden'); });
         }
@@ -550,10 +577,11 @@
             document.getElementById('back-to-chat-list-button')?.addEventListener('click', () => {
                 if (state.unsubscribeMessages) state.unsubscribeMessages();
                 state.activeChatId = null;
-                renderWelcomeScreen();
-                ui.chatListColumn.classList.remove('hidden');
+                // This logic correctly handles the view switch on all screen sizes
                 ui.chatWindow.classList.add('hidden');
                 ui.chatWindow.classList.remove('flex');
+                ui.chatListColumn.classList.remove('hidden');
+                ui.chatListColumn.classList.add('flex');
             });
         }
     </script>
