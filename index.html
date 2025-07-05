@@ -15,6 +15,18 @@
         .modal-backdrop { background-color: rgba(0, 0, 0, 0.85); }
         #video-call-modal video { width: 100%; height: 100%; object-fit: cover; border-radius: 0.5rem; }
         .video-grid { width: 100%; height: calc(100% - 100px); }
+        .notification-dot {
+            width: 10px;
+            height: 10px;
+            background-color: #43b581;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(67, 181, 129, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(67, 181, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(67, 181, 129, 0); }
+        }
     </style>
 </head>
 <body class="bg-[#36393f] text-gray-300">
@@ -120,6 +132,7 @@
         where, 
         getDocs,
         addDoc,
+        updateDoc,
         onSnapshot,
         orderBy,
         serverTimestamp
@@ -163,22 +176,22 @@
 
     let currentChannelId = null;
     let localStream = null;
-    let unsubscribeMessages = null; // Função para parar de ouvir mensagens do canal atual
-    let unsubscribeChannels = null; // Função para parar de ouvir canais
+    let unsubscribeMessages = null; 
+    let unsubscribeChannels = null; 
+    let lastReadTimestamps = {}; // Objeto para armazenar o timestamp da última leitura de cada canal
 
     // --- LÓGICA DE AUTENTICAÇÃO ---
     onAuthStateChanged(auth, async (user) => {
         if (user) {
-            // Usuário está logado
             authContainer.classList.add('hidden');
             appContainer.classList.remove('hidden');
             await setupAppForUser(user);
         } else {
-            // Usuário não está logado
             authContainer.classList.remove('hidden');
             appContainer.classList.add('hidden');
             if (unsubscribeChannels) unsubscribeChannels();
             if (unsubscribeMessages) unsubscribeMessages();
+            lastReadTimestamps = {}; // Limpa os timestamps ao deslogar
         }
     });
 
@@ -189,11 +202,10 @@
         const isSignup = loginForm.querySelector('button[type=submit]').textContent === 'Registrar';
 
         if (isSignup) {
-            // Lógica de Cadastro
             createUserWithEmailAndPassword(auth, email, password)
                 .then(async (userCredential) => {
                     const user = userCredential.user;
-                    const username = email.split('@')[0]; // Pega o nome do usuário do e-mail
+                    const username = email.split('@')[0].replace(/[^a-zA-Z0-9]/g, ''); // Garante um username válido
                     await setDoc(doc(db, "users", user.uid), {
                         uid: user.uid,
                         email: user.email,
@@ -203,7 +215,6 @@
                 })
                 .catch(handleAuthError);
         } else {
-            // Lógica de Login
             signInWithEmailAndPassword(auth, email, password).catch(handleAuthError);
         }
     });
@@ -238,19 +249,10 @@
         const userDoc = await getDoc(doc(db, "users", user.uid));
         const userData = userDoc.data();
 
-        // Renderiza o painel do usuário
         userPanel.innerHTML = `
-            <div class="relative">
-                <img class="w-10 h-10 rounded-full" src="${userData.avatar}" alt="Avatar">
-                <div class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-[#292b2f] rounded-full"></div>
-            </div>
-            <div class="ml-2">
-                <p class="text-sm font-semibold text-white">${userData.username}</p>
-                <p class="text-xs text-gray-400">${userData.email}</p>
-            </div>
-        `;
+            <div class="relative"><img class="w-10 h-10 rounded-full" src="${userData.avatar}" alt="Avatar"><div class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-[#292b2f] rounded-full"></div></div>
+            <div class="ml-2"><p class="text-sm font-semibold text-white">${userData.username}</p><p class="text-xs text-gray-400">${userData.email}</p></div>`;
         
-        // Ouve por atualizações nos canais do usuário
         const q = query(collection(db, "chats"), where("users", "array-contains", user.uid));
         unsubscribeChannels = onSnapshot(q, async (snapshot) => {
             const channels = [];
@@ -273,25 +275,50 @@
         channels.forEach(channel => {
             const channelEl = document.createElement('a');
             channelEl.href = '#';
-            channelEl.className = `channel-item flex items-center px-2 py-1 rounded hover:bg-[#393c43] ${channel.id === currentChannelId ? 'active-channel' : ''}`;
+            channelEl.className = `channel-item flex items-center justify-between px-2 py-1 rounded hover:bg-[#393c43] ${channel.id === currentChannelId ? 'active-channel' : ''}`;
             channelEl.dataset.id = channel.id;
-            channelEl.innerHTML = `<img class="w-8 h-8 rounded-full mr-2" src="${channel.friend.avatar}" alt="Avatar"><span>${channel.friend.username}</span>`;
+
+            // Lógica de Notificação
+            const hasUnread = channel.lastMessage && channel.lastMessage.timestamp > (lastReadTimestamps[channel.id] || 0) && channel.id !== currentChannelId;
+            const notificationDot = hasUnread ? `<div class="notification-dot"></div>` : '';
+
+            channelEl.innerHTML = `
+                <div class="flex items-center">
+                    <img class="w-8 h-8 rounded-full mr-2" src="${channel.friend.avatar}" alt="Avatar">
+                    <span>${channel.friend.username}</span>
+                </div>
+                ${notificationDot}
+            `;
             channelListEl.appendChild(channelEl);
         });
     }
     
     async function selectChannel(channelId) {
-        if (unsubscribeMessages) unsubscribeMessages(); // Para de ouvir o canal antigo
+        if (unsubscribeMessages) unsubscribeMessages();
         currentChannelId = channelId;
         
-        const allChannelElements = document.querySelectorAll('.channel-item');
-        allChannelElements.forEach(el => el.classList.remove('active-channel'));
-        const selectedEl = document.querySelector(`.channel-item[data-id="${channelId}"]`);
-        if(selectedEl) selectedEl.classList.add('active-channel');
+        const chatDocRef = doc(db, "chats", channelId);
+        const chatDoc = await getDoc(chatDocRef);
+        const chatData = chatDoc.data();
+        
+        // Atualiza o timestamp da última leitura para remover a notificação
+        if (chatData.lastMessage) {
+            lastReadTimestamps[channelId] = chatData.lastMessage.timestamp;
+        }
+        
+        // Re-renderiza os canais para remover o ponto de notificação
+        const q = query(collection(db, "chats"), where("users", "array-contains", auth.currentUser.uid));
+        const snapshot = await getDocs(q);
+        const channels = [];
+        for (const doc of snapshot.docs) {
+            const data = doc.data();
+            const friendId = data.users.find(id => id !== auth.currentUser.uid);
+            const friendDoc = await getDoc(doc(db, "users", friendId));
+            channels.push({ id: doc.id, ...data, friend: friendDoc.data() });
+        }
+        renderChannels(channels);
 
-        // Renderiza o cabeçalho
-        const chatDoc = await getDoc(doc(db, "chats", channelId));
-        const friendId = chatDoc.data().users.find(id => id !== auth.currentUser.uid);
+        const friendId = chatData.users.find(id => id !== auth.currentUser.uid);
         const friendDoc = await getDoc(doc(db, "users", friendId));
         const friendData = friendDoc.data();
         chatHeaderInfoEl.innerHTML = `<img class="w-8 h-8 rounded-full mr-3" src="${friendData.avatar}" alt="Avatar"><h2 class="text-lg font-semibold text-white">${friendData.username}</h2>`;
@@ -299,11 +326,10 @@
         messageInputContainer.classList.remove('hidden');
         messageInput.placeholder = `Conversar com @${friendData.username}`;
 
-        // Ouve por novas mensagens
         const messagesRef = collection(db, "chats", channelId, "messages");
-        const q = query(messagesRef, orderBy("timestamp"));
+        const messagesQuery = query(messagesRef, orderBy("timestamp"));
         
-        unsubscribeMessages = onSnapshot(q, async (snapshot) => {
+        unsubscribeMessages = onSnapshot(messagesQuery, async (snapshot) => {
             chatMessagesEl.innerHTML = '';
             for (const messageDoc of snapshot.docs) {
                 const messageData = messageDoc.data();
@@ -334,10 +360,20 @@
         const text = messageInput.value.trim();
         if (text === '' || !currentChannelId) return;
 
-        await addDoc(collection(db, "chats", currentChannelId, "messages"), {
+        const messagesRef = collection(db, "chats", currentChannelId, "messages");
+        const chatRef = doc(db, "chats", currentChannelId);
+
+        // Adiciona a mensagem e atualiza o chat principal com a última mensagem
+        await addDoc(messagesRef, {
             text: text,
             senderId: auth.currentUser.uid,
             timestamp: serverTimestamp()
+        });
+        await updateDoc(chatRef, {
+            lastMessage: {
+                text: text,
+                timestamp: serverTimestamp()
+            }
         });
         messageInput.value = '';
     });
@@ -362,21 +398,21 @@
             return;
         }
         
-        // Verifica se já existe um chat
-        const chatsRef = collection(db, "chats");
-        const chatQuery = query(chatsRef, where("users", "in", [[auth.currentUser.uid, friend.uid], [friend.uid, auth.currentUser.uid]]));
-        const chatSnapshot = await getDocs(chatQuery);
-        
-        if (!chatSnapshot.empty) {
-            // Chat já existe, seleciona ele
-            selectChannel(chatSnapshot.docs[0].id);
+        // Lógica corrigida para criar/encontrar chat
+        const currentUser = auth.currentUser;
+        const chatId = [currentUser.uid, friend.uid].sort().join('_');
+        const chatRef = doc(db, "chats", chatId);
+        const chatDoc = await getDoc(chatRef);
+
+        if (chatDoc.exists()) {
+            selectChannel(chatId);
         } else {
-            // Cria um novo chat
-            const newChatRef = await addDoc(chatsRef, {
-                users: [auth.currentUser.uid, friend.uid],
-                createdAt: serverTimestamp()
+            await setDoc(chatRef, {
+                users: [currentUser.uid, friend.uid],
+                createdAt: serverTimestamp(),
+                lastMessage: null
             });
-            selectChannel(newChatRef.id);
+            selectChannel(chatId);
         }
         searchUserInput.value = '';
     });
