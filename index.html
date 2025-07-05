@@ -121,7 +121,7 @@
                 apiKey: "AIzaSyB98-bStjweF82UALPiw2YiwKKn1IhZASE",
                 authDomain: "videochamada11.firebaseapp.com",
                 projectId: "videochamada11",
-                storageBucket: "videochamada11.appspot.com", // Corrigido para .appspot.com
+                storageBucket: "videochamada11.appspot.com",
                 messagingSenderId: "872635256324",
                 appId: "1:872635256324:web:12a6051efe8796730f2f51"
             };
@@ -341,7 +341,7 @@
         function listenForUsers() {
             unsubscribeUsers(); // Cancela listener anterior
             const usersCollectionRef = collection(db, `artifacts/${appId}/public/data/users`);
-            const q = query(usersCollectioneRef, where("id", "!=", currentUser.uid));
+            const q = query(usersCollectionRef, where("id", "!=", currentUser.uid));
             
             unsubscribeUsers = onSnapshot(q, (snapshot) => {
                 const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
