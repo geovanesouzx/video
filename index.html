@@ -1,47 +1,79 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-br" class="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Teleclone - Chat Funcional</title>
+    <title>Teleclone - Nova Interface</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        // Configuração do Tailwind para modo escuro e cores customizadas
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        // Light Mode
+                        'bg-light': '#F1F5F9', // slate-100
+                        'sidebar-light': '#FFFFFF', // white
+                        'header-light': '#FFFFFF', // white
+                        'text-primary-light': '#1E293B', // slate-800
+                        'text-secondary-light': '#64748B', // slate-500
+                        'bubble-sent-light': '#DBF8C6',
+                        'bubble-received-light': '#FFFFFF',
+                        'hover-light': '#F1F5F9', // slate-100
+                        'border-light': '#E2E8F0', // slate-200
+                        // Dark Mode
+                        'bg-dark': '#0F172A', // slate-900
+                        'sidebar-dark': '#1E293B', // slate-800
+                        'header-dark': '#1E293B', // slate-800
+                        'text-primary-dark': '#E2E8F0', // slate-200
+                        'text-secondary-dark': '#94A3B8', // slate-400
+                        'bubble-sent-dark': '#224C36',
+                        'bubble-received-dark': '#334155', // slate-700
+                        'hover-dark': '#334155', // slate-700
+                        'border-dark': '#334155', // slate-700
+                    }
+                }
+            }
+        }
+    </script>
     <style>
         body { font-family: 'Inter', sans-serif; }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #f1f1f1; }
-        ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 6px; }
-        ::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
-        .hidden { display: none; }
+        .hidden { display: none !important; } /* Usando !important para garantir a sobreposição */
+        
+        /* Animação para o menu lateral */
         #side-menu {
             transition: transform 0.3s ease-in-out;
             transform: translateX(-100%);
         }
         #side-menu.open { transform: translateX(0); }
-        .message-sent { justify-content: flex-end; }
-        .message-received { justify-content: flex-start; }
-        .message-sent .message-bubble { background-color: #dcf8c6; border-bottom-right-radius: 0.125rem; }
-        .message-received .message-bubble { background-color: #ffffff; border-bottom-left-radius: 0.125rem; }
         
-        /* Estilos para a transição mobile */
-        #chat-list-column.mobile-hidden {
+        /* Controle de visibilidade da lista de chats em mobile */
+        #chat-list-column.mobile-hidden { display: none; }
+        @media (min-width: 768px) {
+            #chat-list-column.mobile-hidden { display: flex; }
+            #chat-window.mobile-hidden { display: none; }
+            #chat-window.mobile-visible { display: flex; }
+        }
+        
+        /* Opções de mensagem que aparecem no hover */
+        .message-options, .message-reactions-picker {
             display: none;
         }
-        @media (min-width: 768px) {
-            #chat-list-column.mobile-hidden {
-                display: flex;
-            }
+        .message-wrapper:hover .message-options, .message-wrapper:hover .message-reactions-picker {
+            display: flex;
         }
     </style>
 </head>
-<body class="bg-gray-100 h-screen overflow-hidden">
+<body class="bg-bg-light dark:bg-bg-dark text-text-primary-light dark:text-text-primary-dark h-screen overflow-hidden">
 
     <!-- Ecrã de Loading Inicial -->
-    <div id="loading-container" class="flex items-center justify-center h-full bg-gray-200">
+    <div id="loading-container" class="flex items-center justify-center h-full">
         <svg class="animate-spin h-10 w-10 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -49,192 +81,38 @@
     </div>
 
     <!-- Telas de Autenticação -->
-    <div id="auth-container" class="hidden items-center justify-center h-full bg-gray-200">
-        <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
-            <div class="text-center">
-                <h2 class="text-2xl font-bold text-gray-800">Bem-vindo ao Teleclone</h2>
-                <p class="text-gray-600">Faça login ou crie sua conta</p>
-            </div>
-            <div id="auth-error" class="p-3 text-sm text-red-700 bg-red-100 rounded-lg hidden"></div>
-            <div id="login-view">
-                <form id="login-form" class="space-y-6">
-                    <input id="login-email" type="email" placeholder="Email" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-                    <input id="login-password" type="password" placeholder="Senha" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-                    <button type="submit" class="w-full px-4 py-2 font-semibold text-white bg-blue-500 rounded-lg hover:bg-blue-600">Entrar</button>
-                </form>
-                <div class="text-center mt-6">
-                    <p class="text-sm text-gray-600">Não tem uma conta? <a href="#" id="show-signup-link" class="font-medium text-blue-600 hover:underline">Cadastre-se</a></p>
-                </div>
-            </div>
-            <div id="signup-view" class="hidden">
-                <form id="signup-form" class="space-y-6">
-                    <input id="signup-email" type="email" placeholder="Email" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-                    <input id="signup-password" type="password" placeholder="Senha (mínimo 6 caracteres)" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-                    <button type="submit" class="w-full px-4 py-2 font-semibold text-white bg-green-500 rounded-lg hover:bg-green-600">Criar Conta</button>
-                </form>
-                <div class="text-center mt-6">
-                    <p class="text-sm text-gray-600">Já tem uma conta? <a href="#" id="show-login-link" class="font-medium text-blue-600 hover:underline">Entrar</a></p>
-                </div>
-            </div>
-        </div>
-    </div>
+    <div id="auth-container" class="hidden items-center justify-center h-full"></div>
     
     <!-- Telas de Fluxo Pós-Login -->
-    <div id="signup-success-container" class="hidden items-center justify-center h-full bg-gray-200">
-        <div class="w-full max-w-md p-8 space-y-4 text-center bg-white rounded-lg shadow-md">
-            <h2 class="text-2xl font-bold text-green-600">Conta Criada!</h2>
-            <p class="text-gray-600">Enviamos um link de verificação para seu e-mail. Por favor, clique no link para ativar sua conta e depois faça o login.</p>
-            <button id="back-to-login-btn" class="px-4 py-2 font-semibold text-white bg-blue-500 rounded-lg hover:bg-blue-600">Voltar para Login</button>
-        </div>
-    </div>
-    <div id="email-verification-container" class="hidden items-center justify-center h-full bg-gray-200">
-        <div class="w-full max-w-md p-8 space-y-4 text-center bg-white rounded-lg shadow-md">
-            <h2 class="text-2xl font-bold text-gray-800">Verifique seu E-mail</h2>
-            <p class="text-gray-600">Sua conta ainda não foi verificada. Por favor, cheque sua caixa de entrada e clique no link que enviamos. Depois, pode fazer o login.</p>
-            <button id="logout-verification" class="px-4 py-2 font-semibold text-white bg-red-500 rounded-lg hover:bg-red-600">Sair</button>
-        </div>
-    </div>
-    <div id="username-container" class="hidden items-center justify-center h-full bg-gray-200">
-        <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
-            <h2 class="text-2xl font-bold text-center text-gray-800">Quase lá! Escolha seu nome de usuário</h2>
-            <p class="text-center text-gray-500 text-sm">Este nome será único e visível para outros usuários.</p>
-            <div id="username-error" class="p-3 text-sm text-red-700 bg-red-100 rounded-lg hidden"></div>
-            <form id="username-form" class="space-y-4">
-                <input id="username-input" type="text" placeholder="Nome de usuário (único)" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-                <button type="submit" class="w-full px-4 py-2 font-semibold text-white bg-blue-500 rounded-lg hover:bg-blue-600">Salvar e Entrar</button>
-            </form>
-        </div>
-    </div>
+    <div id="signup-success-container" class="hidden items-center justify-center h-full"></div>
+    <div id="email-verification-container" class="hidden items-center justify-center h-full"></div>
+    <div id="username-container" class="hidden items-center justify-center h-full"></div>
 
     <!-- Container Principal do App (Chat) -->
     <div id="main-app-container" class="hidden h-full w-full">
         <!-- Menu Lateral -->
-        <div id="side-menu" class="fixed z-30 top-0 left-0 h-full w-72 bg-[#212731] p-4 text-white flex flex-col">
-            <div class="flex items-center space-x-4 mb-8">
-                <img id="menu-avatar" src="https://placehold.co/48x48/E2E8F0/4A5568?text=P" alt="Avatar" class="w-12 h-12 rounded-full">
-                <div>
-                    <p id="menu-username" class="font-semibold">Nome de Usuário</p>
-                    <p id="menu-email" class="text-sm text-gray-400">email@exemplo.com</p>
-                </div>
-            </div>
-            <nav class="flex flex-col space-y-1">
-                <button id="new-group-button" class="flex items-center p-2 space-x-3 rounded-lg hover:bg-gray-700">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
-                    <span>Novo Grupo</span>
-                </button>
-                <button id="new-channel-button" class="flex items-center p-2 space-x-3 rounded-lg hover:bg-gray-700">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-2.236 9.168-5.514C18.331 1.31 18.665 1 19 1h.538c.472 0 .86.384.86.857v.686c0 .418-.213.814-.552 1.05C18.899 4.49 18.44 5 18 5c-.44 0-.899-.51-1.448-1.54C15.025 1.236 11.5 3.09 9.832 6H8a4.006 4.006 0 00-2.564 7.683z"></path></svg>
-                    <span>Novo Canal</span>
-                </button>
-                <button id="profile-button" class="flex items-center p-2 space-x-3 rounded-lg hover:bg-gray-700">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
-                    <span>Meu Perfil</span>
-                </button>
-            </nav>
-            <div class="mt-auto">
-                <button id="logout-button" class="flex items-center w-full p-2 space-x-3 text-red-400 rounded-lg hover:bg-red-500 hover:text-white">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
-                    <span>Sair</span>
-                </button>
-            </div>
-        </div>
-        <div id="menu-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-20 hidden"></div>
+        <div id="side-menu" class="fixed z-40 top-0 left-0 h-full w-72 bg-sidebar-light dark:bg-sidebar-dark p-4 text-text-primary-light dark:text-text-primary-dark flex flex-col shadow-lg"></div>
+        <div id="menu-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden"></div>
         
         <div class="relative h-full w-full flex">
             <!-- Coluna da Lista de Chats -->
-            <div id="chat-list-column" class="w-full md:w-1/3 lg:w-1/4 bg-white border-r border-gray-200 flex flex-col h-full absolute md:static inset-0 z-10">
-                <header class="p-2.5 border-b border-gray-200 flex-shrink-0 flex items-center space-x-2">
-                    <button id="hamburger-menu-button" class="p-2 rounded-lg hover:bg-gray-200">
-                        <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
-                    </button>
-                    <div class="relative flex-grow">
-                        <input id="search-chat-input" type="text" placeholder="Procurar" class="w-full bg-gray-100 rounded-lg py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                        </div>
-                    </div>
-                    <button id="new-chat-button" class="p-2 rounded-lg hover:bg-gray-200">
-                        <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
-                    </button>
-                </header>
-                <div id="chat-list" class="flex-grow overflow-y-auto"></div>
-            </div>
+            <div id="chat-list-column" class="w-full md:w-1/3 lg:w-1/4 bg-sidebar-light dark:bg-sidebar-dark border-r border-border-light dark:border-border-dark flex-col h-full absolute md:static inset-0 z-10 flex"></div>
             <!-- Coluna da Janela de Chat -->
-            <div id="chat-window" class="w-full h-full flex-col absolute md:static inset-0 z-20 hidden md:flex" style="background-image: url('https://i.pinimg.com/736x/8c/98/99/8c98994518b575bfd8c949e91d20548b.jpg'); background-size: contain;">
-                <header id="chat-header" class="bg-white p-4 border-b border-gray-200 flex justify-between items-center flex-shrink-0">
-                    <button id="back-to-chat-list-button" class="p-2 rounded-lg hover:bg-gray-200 md:hidden mr-2">
-                        <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
-                    </button>
-                    <div id="chat-header-info" class="flex-grow"></div>
-                </header>
-                <div id="message-list" class="flex-1 p-6 overflow-y-auto"></div>
-                <footer class="bg-white p-4 border-t border-gray-200 flex-shrink-0">
-                    <form id="message-form" class="flex items-center space-x-4">
-                        <input id="message-input" type="text" placeholder="Escreva uma mensagem..." class="flex-1 bg-gray-100 rounded-lg py-2 px-4 focus:outline-none" autocomplete="off" required>
-                        <button type="submit" class="bg-blue-500 text-white p-3 rounded-full hover:bg-blue-600">
-                            <svg class="w-6 h-6 transform rotate-90" fill="currentColor" viewBox="0 0 20 20"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"></path></svg>
-                        </button>
-                    </form>
-                </footer>
-            </div>
+            <div id="chat-window" class="w-full h-full flex-col absolute md:static inset-0 z-20 hidden md:flex bg-bg-light dark:bg-bg-dark"></div>
         </div>
     </div>
     
     <!-- Modals -->
-    <div id="profile-modal" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden items-center justify-center">
-        <div class="bg-white rounded-lg shadow-xl p-8 w-full max-w-sm text-center">
-            <h3 class="text-2xl font-bold mb-4">Meu Perfil</h3>
-            <img id="modal-avatar" src="https://placehold.co/96x96/E2E8F0/4A5568?text=P" alt="Avatar" class="w-24 h-24 rounded-full mx-auto mb-4">
-            <p class="text-xl font-semibold" id="modal-username">Nome de Usuário</p>
-            <p class="text-gray-600 mb-6" id="modal-email">email@exemplo.com</p>
-            <button id="close-profile-modal" class="w-full px-4 py-2 font-semibold text-white bg-blue-500 rounded-lg hover:bg-blue-600">Fechar</button>
-        </div>
-    </div>
-    <div id="new-chat-modal" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden items-center justify-center">
-        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm">
-            <h3 class="text-xl font-bold mb-4">Iniciar Nova Conversa</h3>
-            <p class="text-sm text-gray-600 mb-4">Digite o nome de usuário exato para encontrar um usuário.</p>
-            <div id="new-chat-error" class="p-3 text-sm text-red-700 bg-red-100 rounded-lg hidden mb-4"></div>
-            <form id="new-chat-form">
-                <input id="search-username-input" type="text" placeholder="Nome de usuário" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-                <div class="flex justify-end space-x-4 mt-6">
-                    <button type="button" id="cancel-new-chat" class="px-4 py-2 font-semibold text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">Cancelar</button>
-                    <button type="submit" class="px-4 py-2 font-semibold text-white bg-blue-500 rounded-lg hover:bg-blue-600">Procurar</button>
-                </div>
-            </form>
-        </div>
-    </div>
-    <div id="delete-chat-modal" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden items-center justify-center">
-        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm">
-            <h3 class="text-xl font-bold mb-2">Eliminar Conversa</h3>
-            <p class="text-gray-600 mb-6">Tem a certeza que quer eliminar esta conversa? Esta ação não pode ser desfeita.</p>
-            <div class="flex justify-end space-x-4">
-                <button id="cancel-delete-chat" class="px-4 py-2 font-semibold text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">Cancelar</button>
-                <button id="confirm-delete-chat" class="px-4 py-2 font-semibold text-white bg-red-500 rounded-lg hover:bg-red-600">Eliminar</button>
-            </div>
-        </div>
-    </div>
-    <div id="new-group-modal" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden items-center justify-center">
-         <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm text-center">
-            <h3 class="text-xl font-bold mb-4">Criar Novo Grupo</h3>
-            <p class="text-gray-600 mb-6">A funcionalidade de criação de grupos estará disponível em breve!</p>
-            <button id="close-new-group-modal" class="w-full px-4 py-2 font-semibold text-white bg-blue-500 rounded-lg hover:bg-blue-600">Entendido</button>
-        </div>
-    </div>
-     <div id="new-channel-modal" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden items-center justify-center">
-         <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm text-center">
-            <h3 class="text-xl font-bold mb-4">Criar Novo Canal</h3>
-            <p class="text-gray-600 mb-6">A funcionalidade de criação de canais estará disponível em breve!</p>
-            <button id="close-new-channel-modal" class="w-full px-4 py-2 font-semibold text-white bg-blue-500 rounded-lg hover:bg-blue-600">Entendido</button>
-        </div>
-    </div>
+    <div id="modal-container" class="fixed inset-0 z-50 hidden"></div>
 
-    <!-- Firebase SDKs -->
+    <!-- Firebase SDKs (Versões atualizadas) -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, collection, query, where, getDocs, addDoc, onSnapshot, serverTimestamp, orderBy, updateDoc, increment, deleteDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
-        import { getDatabase, ref, onValue, set, onDisconnect } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, collection, query, where, getDocs, addDoc, onSnapshot, serverTimestamp, orderBy, updateDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+        // --- INÍCIO DO CÓDIGO JAVASCRIPT ---
 
         const firebaseConfig = {
             apiKey: "AIzaSyB98-bStjweF82UALPiw2YiwKKn1IhZASE",
@@ -251,462 +129,473 @@
         const db = getFirestore(app);
         const rtdb = getDatabase(app);
 
-        const containers = {
+        const ui = {
             loading: document.getElementById('loading-container'),
             auth: document.getElementById('auth-container'),
-            verification: document.getElementById('email-verification-container'),
-            username: document.getElementById('username-container'),
             main: document.getElementById('main-app-container'),
-            signupSuccess: document.getElementById('signup-success-container'),
+            chatListColumn: document.getElementById('chat-list-column'),
+            chatWindow: document.getElementById('chat-window'),
+            sideMenu: document.getElementById('side-menu'),
+            menuOverlay: document.getElementById('menu-overlay'),
+            modalContainer: document.getElementById('modal-container'),
         };
-        const showContainer = (name) => Object.values(containers).forEach(c => c.id === containers[name].id ? c.classList.remove('hidden') : c.classList.add('hidden'));
-        const showError = (element, message) => {
-            element.textContent = message;
-            element.classList.remove('hidden');
+
+        let state = {
+            currentUser: null,
+            userData: null,
+            activeChatId: null,
+            listeners: {},
+            theme: localStorage.getItem('theme') || 'light',
         };
         
-        let currentUser = null;
-        let activeChatId = null;
-        let unsubscribeChatList = null;
-        let unsubscribeUserChats = null;
-        let unsubscribeMessages = null;
-        let unsubscribeTypingStatus = null;
-        let unsubscribePresence = null;
-        let localChats = {};
-        let typingTimeout = null;
+        document.documentElement.classList.toggle('dark', state.theme === 'dark');
 
-        function renderChatList(filter = '') {
-            const chatListEl = document.getElementById('chat-list');
-            chatListEl.innerHTML = '';
+        // --- FUNÇÕES DE RENDERIZAÇÃO E UI ---
+        
+        function render(element, content) {
+            if (element) element.innerHTML = content;
+        }
 
-            const sortedChats = Object.values(localChats).sort((a, b) => (b.lastUpdate?.seconds || 0) - (a.lastUpdate?.seconds || 0));
-            
-            const filteredChats = sortedChats.filter(chat => chat.otherUserName?.toLowerCase().includes(filter.toLowerCase()));
+        function showScreen(screenId) {
+            ['loading-container', 'auth-container', 'main-app-container'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.add('hidden');
+            });
+            const screenToShow = document.getElementById(screenId);
+            if (screenToShow) screenToShow.classList.remove('hidden');
+        }
 
-            if (filteredChats.length === 0) {
-                chatListEl.innerHTML = `<p class="p-4 text-center text-gray-500">Nenhum chat encontrado.</p>`;
-                return;
-            }
-
-            filteredChats.forEach(chat => {
-                const unreadBadge = chat.unreadCount > 0 
-                    ? `<span class="bg-blue-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center ml-auto">${chat.unreadCount}</span>`
-                    : '';
-
-                const chatEl = document.createElement('div');
-                chatEl.className = `flex items-center p-4 hover:bg-gray-100 cursor-pointer border-b border-gray-200 relative group`;
-                chatEl.innerHTML = `
-                    <img src="https://placehold.co/48x48/CBD5E0/4A5568?text=${chat.otherUserName.charAt(0).toUpperCase()}" alt="Avatar" class="w-12 h-12 rounded-full mr-4">
-                    <div class="flex-grow overflow-hidden">
-                        <h3 class="font-semibold text-gray-800">${chat.otherUserName}</h3>
-                        <p class="text-sm text-gray-500 truncate">${chat.lastMessage || 'Nenhuma mensagem'}</p>
+        function renderAuthScreen() {
+            const content = `
+                <div class="w-full max-w-md p-8 space-y-6 bg-sidebar-light dark:bg-sidebar-dark rounded-lg shadow-md">
+                    <div class="text-center">
+                        <h2 class="text-2xl font-bold">Bem-vindo ao Teleclone</h2>
+                        <p class="text-text-secondary-light dark:text-text-secondary-dark">Faça login ou crie sua conta</p>
                     </div>
-                    ${unreadBadge}
-                    <div class="absolute top-2 right-2 hidden group-hover:block">
-                        <button class="chat-options-btn p-1 rounded-full hover:bg-gray-300" data-chat-id="${chat.id}">
-                            <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg>
+                    <div id="auth-error" class="p-3 text-sm text-red-700 bg-red-100 rounded-lg hidden"></div>
+                    <div id="login-view">
+                        <form id="login-form" class="space-y-6">
+                            <input id="login-email" type="email" placeholder="Email" class="w-full px-4 py-2 border rounded-lg bg-bg-light dark:bg-bg-dark focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                            <input id="login-password" type="password" placeholder="Senha" class="w-full px-4 py-2 border rounded-lg bg-bg-light dark:bg-bg-dark focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                            <button type="submit" class="w-full px-4 py-2 font-semibold text-white bg-blue-500 rounded-lg hover:bg-blue-600">Entrar</button>
+                        </form>
+                        <p class="text-sm text-center mt-6">Não tem uma conta? <a href="#" id="show-signup-link" class="font-medium text-blue-600 hover:underline">Cadastre-se</a></p>
+                    </div>
+                    <div id="signup-view" class="hidden">
+                         <form id="signup-form" class="space-y-6">
+                            <input id="signup-email" type="email" placeholder="Email" class="w-full px-4 py-2 border rounded-lg bg-bg-light dark:bg-bg-dark focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                            <input id="signup-password" type="password" placeholder="Senha (mínimo 6 caracteres)" class="w-full px-4 py-2 border rounded-lg bg-bg-light dark:bg-bg-dark focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                            <button type="submit" class="w-full px-4 py-2 font-semibold text-white bg-green-500 rounded-lg hover:bg-green-600">Criar Conta</button>
+                        </form>
+                        <p class="text-sm text-center mt-6">Já tem uma conta? <a href="#" id="show-login-link" class="font-medium text-blue-600 hover:underline">Entrar</a></p>
+                    </div>
+                </div>`;
+            render(ui.auth, content);
+            ui.auth.classList.add('flex');
+            setupAuthListeners();
+        }
+
+        function renderSideMenu(userData) {
+            const content = `
+                <div class="flex items-center space-x-4 mb-8">
+                    <img id="menu-avatar" src="https://placehold.co/48x48/E2E8F0/4A5568?text=${userData.username.charAt(0).toUpperCase()}" alt="Avatar" class="w-12 h-12 rounded-full">
+                    <div>
+                        <p id="menu-username" class="font-semibold">${userData.username}</p>
+                        <p id="menu-email" class="text-sm text-text-secondary-light dark:text-text-secondary-dark">${userData.email}</p>
+                    </div>
+                </div>
+                <nav class="flex flex-col space-y-1">
+                    <button id="profile-button" class="flex items-center p-2 space-x-3 rounded-lg hover:bg-hover-light dark:hover:bg-hover-dark">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                        <span>Meu Perfil</span>
+                    </button>
+                    <div class="flex items-center justify-between p-2 rounded-lg">
+                        <div class="flex items-center space-x-3">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+                            <span>Modo Escuro</span>
+                        </div>
+                        <label for="dark-mode-toggle" class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="dark-mode-toggle" class="sr-only peer" ${state.theme === 'dark' ? 'checked' : ''}>
+                            <div class="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                        </label>
+                    </div>
+                </nav>
+                <div class="mt-auto">
+                    <button id="logout-button" class="flex items-center w-full p-2 space-x-3 text-red-500 rounded-lg hover:bg-red-100 dark:hover:bg-red-500 dark:hover:text-white">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                        <span>Sair</span>
+                    </button>
+                </div>`;
+            render(ui.sideMenu, content);
+        }
+        
+        function renderChatListColumn() {
+             const content = `
+                <header class="p-2.5 border-b border-border-light dark:border-border-dark flex-shrink-0 flex items-center space-x-2">
+                    <button id="hamburger-menu-button" class="p-2 rounded-lg hover:bg-hover-light dark:hover:bg-hover-dark">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+                    </button>
+                    <div class="relative flex-grow">
+                        <input id="search-chat-input" type="text" placeholder="Procurar" class="w-full bg-bg-light dark:bg-bg-dark rounded-lg py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg class="w-5 h-5 text-text-secondary-light dark:text-text-secondary-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        </div>
+                    </div>
+                    <button id="new-chat-button" class="p-2 rounded-lg hover:bg-hover-light dark:hover:bg-hover-dark">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                    </button>
+                </header>
+                <div id="chat-list" class="flex-grow overflow-y-auto"></div>`;
+            render(ui.chatListColumn, content);
+        }
+
+        function renderChatWindow(chatId, otherUserName) {
+            const content = `
+                <header id="chat-header" class="bg-header-light dark:bg-header-dark p-3 border-b border-border-light dark:border-border-dark flex justify-between items-center flex-shrink-0">
+                    <div class="flex items-center">
+                        <button id="back-to-chat-list-button" class="p-2 rounded-full hover:bg-hover-light dark:hover:bg-hover-dark md:hidden mr-2">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
                         </button>
+                        <div id="chat-header-info">
+                            <h2 class="text-lg font-semibold">${otherUserName}</h2>
+                            <div id="status-container"><p class="text-sm text-text-secondary-light dark:text-text-secondary-dark">online</p></div>
+                        </div>
                     </div>
-                `;
-                
-                const mainContent = chatEl.querySelector('.flex-grow');
-                mainContent.addEventListener('click', () => {
-                    if (activeChatId !== chat.id) {
-                        openChat(chat.id, chat.otherUserName);
-                    }
-                });
+                </header>
+                <div id="message-list" class="flex-1 p-4 md:p-6 overflow-y-auto"></div>
+                <footer class="bg-header-light dark:bg-header-dark p-2 border-t border-border-light dark:border-border-dark flex-shrink-0">
+                    <form id="message-form" class="flex items-center space-x-2">
+                         <button type="button" class="p-2 rounded-full hover:bg-hover-light dark:hover:bg-hover-dark text-text-secondary-light dark:text-text-secondary-dark">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>
+                        </button>
+                        <input id="message-input" type="text" placeholder="Escreva uma mensagem..." class="flex-1 bg-bg-light dark:bg-bg-dark rounded-full py-2 px-4 focus:outline-none" autocomplete="off" required>
+                        <button type="submit" class="bg-blue-500 text-white w-10 h-10 flex items-center justify-center rounded-full hover:bg-blue-600">
+                            <svg class="w-6 h-6 transform rotate-90" fill="currentColor" viewBox="0 0 20 20"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"></path></svg>
+                        </button>
+                    </form>
+                </footer>`;
+            render(ui.chatWindow, content);
+        }
 
-                chatEl.querySelector('.chat-options-btn').addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    showDeleteConfirmation(chat.id);
-                });
+        function renderMessage(message) {
+            const messageListEl = document.getElementById('message-list');
+            if (!messageListEl) return;
+            const isSent = message.senderId === state.currentUser.uid;
+            const messageAlign = isSent ? 'justify-end' : 'justify-start';
+            const bubbleColor = isSent ? 'bg-bubble-sent-light dark:bg-bubble-sent-dark' : 'bg-bubble-received-light dark:bg-bubble-received-dark';
+            
+            const messageHTML = `
+                <div class="flex ${messageAlign} mb-3">
+                    <div class="message-wrapper max-w-xs lg:max-w-md">
+                        <div class="${bubbleColor} rounded-lg px-3 py-2 shadow-md">
+                            <p class="text-sm break-words">${message.text}</p>
+                            <p class="text-xs text-right text-text-secondary-light dark:text-text-secondary-dark mt-1">${message.timestamp ? new Date(message.timestamp.seconds * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            messageListEl.insertAdjacentHTML('beforeend', messageHTML);
+        }
 
-                chatListEl.appendChild(chatEl);
+        function renderModal(title, content) {
+            const modalHTML = `
+                <div id="modal-backdrop" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center">
+                    <div class="bg-sidebar-light dark:bg-sidebar-dark rounded-lg shadow-xl p-6 w-full max-w-md m-4 animate-fade-in-up">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-xl font-semibold">${title}</h3>
+                            <button id="modal-close-button" class="p-1 rounded-full hover:bg-hover-light dark:hover:bg-hover-dark">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            </button>
+                        </div>
+                        <div>${content}</div>
+                    </div>
+                </div>
+            `;
+            render(ui.modalContainer, modalHTML);
+            ui.modalContainer.classList.remove('hidden');
+            document.getElementById('modal-close-button').addEventListener('click', hideModal);
+            document.getElementById('modal-backdrop').addEventListener('click', (e) => {
+                if (e.target.id === 'modal-backdrop') hideModal();
             });
         }
+
+        function hideModal() {
+            render(ui.modalContainer, '');
+            ui.modalContainer.classList.add('hidden');
+        }
+
+        // --- LÓGICA PRINCIPAL E AUTENTICAÇÃO ---
 
         onAuthStateChanged(auth, async (user) => {
-            if (unsubscribeChatList) unsubscribeChatList();
-            if (unsubscribeUserChats) unsubscribeUserChats();
-            if (unsubscribeMessages) unsubscribeMessages();
-            if (unsubscribeTypingStatus) unsubscribeTypingStatus();
-            if (unsubscribePresence) unsubscribePresence();
-            
-            localChats = {};
-            currentUser = user;
+            if (state.listeners.userChats) state.listeners.userChats();
+            if (state.listeners.messages) state.listeners.messages();
 
             if (user) {
-                const userStatusRef = ref(rtdb, '/status/' + user.uid);
-                const isOfflineForDatabase = { state: 'offline', last_changed: serverTimestamp() };
-                const isOnlineForDatabase = { state: 'online', last_changed: serverTimestamp() };
-                
-                onValue(ref(rtdb, '.info/connected'), (snapshot) => {
-                    if (snapshot.val() === false) return;
-                    onDisconnect(userStatusRef).set(isOfflineForDatabase).then(() => {
-                        set(userStatusRef, isOnlineForDatabase);
-                    });
-                });
+                state.currentUser = user;
+                const userDocRef = doc(db, "users", user.uid);
+                const userDocSnap = await getDoc(userDocRef);
 
-                await user.reload();
-                if (user.emailVerified) {
-                    const userDoc = await getDoc(doc(db, "users", user.uid));
-                    if (userDoc.exists() && userDoc.data().username) {
-                        showContainer('main');
-                        setupMainApp(user, userDoc.data());
-                    } else {
-                        showContainer('username');
-                    }
+                if (userDocSnap.exists()) {
+                    state.userData = userDocSnap.data();
+                    await setupMainApp();
                 } else {
-                    showContainer('verification');
+                    const newUsername = user.email.split('@')[0];
+                    await setDoc(userDocRef, {
+                        uid: user.uid,
+                        email: user.email,
+                        username: newUsername,
+                        createdAt: serverTimestamp()
+                    });
+                    state.userData = { uid: user.uid, email: user.email, username: newUsername };
+                    await setupMainApp();
                 }
             } else {
-                showContainer('auth');
+                state = { ...state, currentUser: null, userData: null, activeChatId: null };
+                renderAuthScreen();
+                showScreen('auth-container');
             }
-            containers.loading.classList.add('hidden');
+            ui.loading.classList.add('hidden');
         });
-        
-        function setupMainApp(user, userData) {
-            document.getElementById('menu-username').textContent = userData.username;
-            document.getElementById('menu-email').textContent = user.email;
-            document.getElementById('modal-username').textContent = userData.username;
-            document.getElementById('modal-email').textContent = user.email;
 
-            const chatsQuery = query(collection(db, "chats"), where("members", "array-contains", user.uid));
-            unsubscribeChatList = onSnapshot(chatsQuery, (snapshot) => {
-                snapshot.docChanges().forEach((change) => {
-                    const docData = change.doc.data();
-                    const docId = change.doc.id;
-                    if (change.type === "removed") {
-                        delete localChats[docId];
-                    } else {
-                        const otherMemberId = docData.members.find(id => id !== currentUser.uid);
-                        if (otherMemberId) {
-                            getDoc(doc(db, "users", otherMemberId)).then(userDoc => {
-                                if(userDoc.exists()){
-                                    localChats[docId] = { ...localChats[docId], ...docData, id: docId, otherUserName: userDoc.data().username };
-                                    renderChatList(document.getElementById('search-chat-input').value);
-                                }
-                            });
+        async function setupMainApp() {
+            renderChatListColumn();
+            renderSideMenu(state.userData);
+            showScreen('main-app-container');
+            setupMainAppListeners();
+            listenForUserChats();
+        }
+
+        function handleLogout() {
+            signOut(auth).catch(error => console.error("Erro ao fazer logout:", error));
+        }
+
+        // --- LÓGICA DE CHAT ---
+
+        function listenForUserChats() {
+            const userChatsRef = collection(db, `users/${state.currentUser.uid}/userChats`);
+            state.listeners.userChats = onSnapshot(userChatsRef, async (snapshot) => {
+                const chatPromises = snapshot.docs.map(doc => getDoc(doc.data().ref));
+                const chatDocs = await Promise.all(chatPromises);
+                
+                const chatsData = [];
+                for (const chatDoc of chatDocs) {
+                    if (chatDoc.exists()) {
+                        const chatData = chatDoc.data();
+                        const otherUserId = chatData.members.find(id => id !== state.currentUser.uid);
+                        if (otherUserId) {
+                             const otherUserDoc = await getDoc(doc(db, "users", otherUserId));
+                            if (otherUserDoc.exists()) {
+                                chatsData.push({
+                                    id: chatDoc.id,
+                                    ...chatData,
+                                    otherUser: otherUserDoc.data()
+                                });
+                            }
                         }
                     }
-                });
-                renderChatList(document.getElementById('search-chat-input').value);
-            });
-
-            const userChatsQuery = collection(db, "users", user.uid, "userChats");
-            unsubscribeUserChats = onSnapshot(userChatsQuery, (snapshot) => {
-                 snapshot.docChanges().forEach((change) => {
-                    if (change.type === "removed") {
-                        if(localChats[change.doc.id]) delete localChats[change.doc.id].unreadCount;
-                    } else {
-                        if(localChats[change.doc.id]) {
-                            localChats[change.doc.id].unreadCount = change.doc.data().unreadCount;
-                        }
-                    }
-                });
-                renderChatList(document.getElementById('search-chat-input').value);
+                }
+                renderChatList(chatsData);
             });
         }
 
-        async function openChat(chatId, otherUserName) {
-            activeChatId = chatId;
-            const chatWindow = document.getElementById('chat-window');
-            const chatListColumn = document.getElementById('chat-list-column');
+        function renderChatList(chats) {
+            const chatListEl = document.getElementById('chat-list');
+            if (!chatListEl) return;
+            if (chats.length === 0) {
+                chatListEl.innerHTML = '<p class="p-4 text-center text-text-secondary-light dark:text-text-secondary-dark">Nenhum chat. Comece uma nova conversa!</p>';
+                return;
+            }
             
-            chatWindow.classList.remove('hidden');
-            chatWindow.classList.add('flex');
-            chatListColumn.classList.add('mobile-hidden');
+            chats.sort((a, b) => (b.lastMessage?.timestamp || 0) - (a.lastMessage?.timestamp || 0));
+            
+            const chatsHTML = chats.map(chat => {
+                const otherUser = chat.otherUser;
+                const lastMessage = chat.lastMessage ? chat.lastMessage.text : 'Nenhuma mensagem ainda';
+                const time = chat.lastMessage?.timestamp ? new Date(chat.lastMessage.timestamp.seconds * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
+                return `
+                    <div class="chat-list-item flex items-center p-3 hover:bg-hover-light dark:hover:bg-hover-dark cursor-pointer border-b border-border-light dark:border-border-dark" data-chat-id="${chat.id}">
+                        <img src="https://placehold.co/48x48/E2E8F0/4A5568?text=${otherUser.username.charAt(0).toUpperCase()}" alt="Avatar" class="w-12 h-12 rounded-full mr-4">
+                        <div class="flex-grow overflow-hidden">
+                            <div class="flex justify-between">
+                                <p class="font-semibold truncate">${otherUser.username}</p>
+                                <p class="text-xs text-text-secondary-light dark:text-text-secondary-dark flex-shrink-0">${time}</p>
+                            </div>
+                            <p class="text-sm text-text-secondary-light dark:text-text-secondary-dark truncate">${lastMessage}</p>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            chatListEl.innerHTML = chatsHTML;
 
-            const chatHeaderInfo = document.getElementById('chat-header-info');
-            const otherUserId = localChats[chatId].members.find(id => id !== currentUser.uid);
-
-            if (unsubscribePresence) unsubscribePresence();
-            unsubscribePresence = onValue(ref(rtdb, '/status/' + otherUserId), (snapshot) => {
-                const presence = snapshot.val();
-                let statusHtml = `<p class="text-sm text-gray-500">offline</p>`;
-                if (presence?.state === 'online') {
-                    statusHtml = `<p class="text-sm text-green-500">online</p>`;
-                } else if (presence?.last_changed) {
-                    const lastSeen = new Date(presence.last_changed).toLocaleString();
-                    statusHtml = `<p class="text-sm text-gray-500">visto por último ${lastSeen}</p>`;
-                }
-                chatHeaderInfo.innerHTML = `<div><h2 class="text-lg font-semibold">${otherUserName}</h2><div id="status-container">${statusHtml}</div></div>`;
-            });
-
-            if (unsubscribeTypingStatus) unsubscribeTypingStatus();
-            unsubscribeTypingStatus = onSnapshot(doc(db, "chats", chatId), (doc) => {
-                const typingUsers = doc.data()?.typing || {};
-                const otherUserIsTyping = typingUsers[otherUserId];
-                const statusContainer = document.getElementById('status-container');
-                if (otherUserIsTyping) {
-                    statusContainer.innerHTML = `<p class="text-sm text-blue-500 italic">a escrever...</p>`;
-                }
-            });
-
-            if (unsubscribeMessages) unsubscribeMessages();
-
-            const messagesQuery = query(collection(db, "chats", chatId, "messages"), orderBy("timestamp"));
-            const messageListEl = document.getElementById('message-list');
-            unsubscribeMessages = onSnapshot(messagesQuery, (snapshot) => {
-                messageListEl.innerHTML = '';
-                snapshot.docs.forEach(doc => {
-                    const msg = doc.data();
-                    const messageWrapper = document.createElement('div');
-                    messageWrapper.className = `flex items-end mb-4 ${msg.senderId === currentUser.uid ? 'message-sent' : 'message-received'}`;
-                    messageWrapper.innerHTML = `
-                        <div class="message-bubble rounded-lg p-3 max-w-lg shadow">
-                            <p class="text-sm text-gray-800 break-words">${msg.text}</p>
-                            <span class="text-xs text-gray-400 float-right mt-1 clear-both">${msg.timestamp ? new Date(msg.timestamp.seconds * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}</span>
-                        </div>`;
-                    messageListEl.appendChild(messageWrapper);
+            document.querySelectorAll('.chat-list-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const chatId = item.dataset.chatId;
+                    const chatData = chats.find(c => c.id === chatId);
+                    if(chatData) openChat(chatId, chatData);
                 });
+            });
+        }
+
+        function openChat(chatId, chatData) {
+            if (state.listeners.messages) state.listeners.messages();
+            state.activeChatId = chatId;
+            renderChatWindow(chatId, chatData.otherUser.username);
+            listenForMessages(chatId);
+            
+            if (window.innerWidth < 768) {
+                ui.chatListColumn.classList.add('hidden');
+            }
+            ui.chatWindow.classList.remove('hidden');
+            ui.chatWindow.classList.add('flex');
+            
+            setupChatWindowListeners(chatId);
+        }
+
+        function listenForMessages(chatId) {
+            const messagesRef = collection(db, `chats/${chatId}/messages`);
+            const q = query(messagesRef, orderBy("timestamp", "asc"));
+            const messageListEl = document.getElementById('message-list');
+            
+            state.listeners.messages = onSnapshot(q, (snapshot) => {
+                if (!messageListEl) return;
+                messageListEl.innerHTML = '';
+                snapshot.forEach(doc => renderMessage(doc.data()));
                 messageListEl.scrollTop = messageListEl.scrollHeight;
             });
-
-            const userChatRef = doc(db, "users", currentUser.uid, "userChats", chatId);
-            await setDoc(userChatRef, { unreadCount: 0 }, { merge: true });
-        }
-        
-        function showDeleteConfirmation(chatId) {
-            const modal = document.getElementById('delete-chat-modal');
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-            modal.dataset.chatId = chatId;
         }
 
-        async function deleteChat(chatId) {
-            if (!chatId) return;
+        async function handleSendMessage(chatId, text) {
+            if (!text.trim()) return;
+            
+            const messagesRef = collection(db, `chats/${chatId}/messages`);
+            const chatRef = doc(db, "chats", chatId);
+
             try {
-                const chatRef = doc(db, "chats", chatId);
-                const chatSnap = await getDoc(chatRef);
-                if (chatSnap.exists()) {
-                    const members = chatSnap.data().members;
-                    for (const userId of members) {
-                        await deleteDoc(doc(db, "users", userId, "userChats", chatId));
-                    }
-                    await deleteDoc(chatRef);
-                }
-                if (activeChatId === chatId) {
-                    document.getElementById('back-to-chat-list-button').click();
-                }
-            } catch (error) {
-                console.error("Error deleting chat:", error);
-            }
-        }
-
-        async function updateTypingStatus(isTyping) {
-            if (!activeChatId || !currentUser) return;
-            const chatRef = doc(db, "chats", activeChatId);
-            const typingUpdate = {};
-            typingUpdate[`typing.${currentUser.uid}`] = isTyping;
-            await updateDoc(chatRef, typingUpdate);
-        }
-
-        // --- Formulários e Ações ---
-        document.getElementById('login-form').addEventListener('submit', (e) => {
-            e.preventDefault();
-            const email = document.getElementById('login-email').value;
-            const password = document.getElementById('login-password').value;
-            document.getElementById('auth-error').classList.add('hidden');
-            signInWithEmailAndPassword(auth, email, password)
-                .catch((error) => showError(document.getElementById('auth-error'), `Erro no login: ${error.message}`));
-        });
-
-        document.getElementById('signup-form').addEventListener('submit', (e) => {
-            e.preventDefault();
-            const email = document.getElementById('signup-email').value;
-            const password = document.getElementById('signup-password').value;
-            document.getElementById('auth-error').classList.add('hidden');
-            createUserWithEmailAndPassword(auth, email, password)
-                .then((userCredential) => {
-                    sendEmailVerification(userCredential.user)
-                        .then(() => {
-                            signOut(auth);
-                            showContainer('signupSuccess');
-                        });
-                })
-                .catch((error) => showError(document.getElementById('auth-error'), `Erro no cadastro: ${error.message}`));
-        });
-
-        document.getElementById('username-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const username = document.getElementById('username-input').value.trim().toLowerCase();
-            const errorEl = document.getElementById('username-error');
-            errorEl.classList.add('hidden');
-            if (!currentUser || username.length < 3) {
-                showError(errorEl, "Nome de usuário precisa ter ao menos 3 caracteres.");
-                return;
-            }
-            const q = query(collection(db, "users"), where("username", "==", username));
-            const querySnapshot = await getDocs(q);
-            if (!querySnapshot.empty) {
-                showError(errorEl, "Este nome de usuário já está em uso.");
-            } else {
-                const userData = { username: username, email: currentUser.email };
-                await setDoc(doc(db, "users", currentUser.uid), userData);
-                showContainer('main');
-                setupMainApp(currentUser, userData);
-            }
-        });
-
-        document.getElementById('message-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const input = document.getElementById('message-input');
-            const text = input.value.trim();
-            if (text && activeChatId && currentUser) {
-                input.value = '';
-                await updateTypingStatus(false);
-
-                await addDoc(collection(db, "chats", activeChatId, "messages"), {
+                await addDoc(messagesRef, {
                     text: text,
-                    senderId: currentUser.uid,
+                    senderId: state.currentUser.uid,
                     timestamp: serverTimestamp()
                 });
-                await updateDoc(doc(db, "chats", activeChatId), { 
-                    lastMessage: text,
-                    lastUpdate: serverTimestamp()
+                await updateDoc(chatRef, {
+                    lastMessage: { text: text, timestamp: serverTimestamp(), senderId: state.currentUser.uid }
                 });
-                
-                const chatDoc = await getDoc(doc(db, "chats", activeChatId));
-                const recipientId = chatDoc.data().members.find(id => id !== currentUser.uid);
-                if (recipientId) {
-                    const recipientChatRef = doc(db, "users", recipientId, "userChats", activeChatId);
-                    await setDoc(recipientChatRef, { unreadCount: increment(1) }, { merge: true });
-                }
-            }
-        });
-
-        document.getElementById('new-chat-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const usernameInput = document.getElementById('search-username-input');
-            const searchUsername = usernameInput.value.trim().toLowerCase();
-            const errorEl = document.getElementById('new-chat-error');
-            errorEl.classList.add('hidden');
-
-            if (searchUsername === document.getElementById('menu-username').textContent) {
-                showError(errorEl, "Você não pode conversar consigo mesmo.");
-                return;
-            }
-
-            const q = query(collection(db, "users"), where("username", "==", searchUsername));
-            const querySnapshot = await getDocs(q);
-
-            if (querySnapshot.empty) {
-                showError(errorEl, "Usuário não encontrado.");
-            } else {
-                const otherUserDoc = querySnapshot.docs[0];
-                const otherUserId = otherUserDoc.id;
-                
-                const chatId = [currentUser.uid, otherUserId].sort().join('_');
-                const chatDocRef = doc(db, "chats", chatId);
-                const chatDocSnap = await getDoc(chatDocRef);
-
-                if (!chatDocSnap.exists()) {
-                    await setDoc(chatDocRef, {
-                        type: 'dm',
-                        members: [currentUser.uid, otherUserId],
-                        lastMessage: '',
-                        lastUpdate: serverTimestamp(),
-                        typing: {}
-                    });
-                    await setDoc(doc(db, "users", currentUser.uid, "userChats", chatId), { unreadCount: 0 });
-                    await setDoc(doc(db, "users", otherUserId, "userChats", chatId), { unreadCount: 0 });
-                }
-                
-                document.getElementById('new-chat-modal').classList.add('hidden');
-                usernameInput.value = '';
-                openChat(chatId, otherUserDoc.data().username);
-            }
-        });
-
-        // --- Event Listeners para UI ---
-        document.getElementById('show-signup-link').addEventListener('click', (e) => {
-            e.preventDefault();
-            document.getElementById('login-view').classList.add('hidden');
-            document.getElementById('signup-view').classList.remove('hidden');
-        });
-        document.getElementById('show-login-link').addEventListener('click', (e) => {
-            e.preventDefault();
-            document.getElementById('signup-view').classList.add('hidden');
-            document.getElementById('login-view').classList.remove('hidden');
-        });
-        document.getElementById('back-to-login-btn').addEventListener('click', () => {
-            showContainer('auth');
-            document.getElementById('signup-view').classList.add('hidden');
-            document.getElementById('login-view').classList.remove('hidden');
-        });
-        
-        const handleLogout = () => {
-            const userStatusRef = ref(rtdb, '/status/' + currentUser.uid);
-            set(userStatusRef, { state: 'offline', last_changed: serverTimestamp() });
-            signOut(auth).catch(console.error);
+            } catch (error) { console.error("Erro ao enviar mensagem:", error); }
         }
-        document.getElementById('logout-button').addEventListener('click', handleLogout);
-        document.getElementById('logout-verification').addEventListener('click', handleLogout);
 
-        document.getElementById('hamburger-menu-button').addEventListener('click', () => {
-            document.getElementById('side-menu').classList.add('open');
-            document.getElementById('menu-overlay').classList.remove('hidden');
-        });
-        document.getElementById('menu-overlay').addEventListener('click', () => {
-            document.getElementById('side-menu').classList.remove('open');
-            document.getElementById('menu-overlay').classList.add('hidden');
-        });
+        async function handleStartChat(targetUserId, targetUsername) {
+            hideModal();
+            const currentUserId = state.currentUser.uid;
+            const chatId = currentUserId > targetUserId ? `${currentUserId}_${targetUserId}` : `${targetUserId}_${currentUserId}`;
+            const chatRef = doc(db, "chats", chatId);
 
-        document.getElementById('back-to-chat-list-button').addEventListener('click', () => {
-            document.getElementById('chat-window').classList.add('hidden');
-            document.getElementById('chat-window').classList.remove('flex');
-            document.getElementById('chat-list-column').classList.remove('mobile-hidden');
-            activeChatId = null;
-        });
+            try {
+                const chatSnap = await getDoc(chatRef);
+                if (!chatSnap.exists()) {
+                    await setDoc(chatRef, { members: [currentUserId, targetUserId], createdAt: serverTimestamp(), lastMessage: null });
+                    const batch = writeBatch(db);
+                    batch.set(doc(db, `users/${currentUserId}/userChats`, chatId), { ref: chatRef });
+                    batch.set(doc(db, `users/${targetUserId}/userChats`, chatId), { ref: chatRef });
+                    await batch.commit();
+                }
+                const newChatData = (await getDoc(chatRef)).data();
+                const otherUserDoc = await getDoc(doc(db, "users", targetUserId));
+                openChat(chatId, { ...newChatData, otherUser: otherUserDoc.data() });
+            } catch (error) { console.error("Erro ao iniciar chat:", error); }
+        }
 
-        document.getElementById('search-chat-input').addEventListener('input', (e) => {
-            renderChatList(e.target.value);
-        });
+        // --- SETUP DE EVENT LISTENERS ---
 
-        document.getElementById('message-input').addEventListener('input', () => {
-            clearTimeout(typingTimeout);
-            updateTypingStatus(true);
-            typingTimeout = setTimeout(() => {
-                updateTypingStatus(false);
-            }, 2000);
-        });
+        function setupAuthListeners() {
+            document.getElementById('login-form')?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const email = document.getElementById('login-email').value;
+                const password = document.getElementById('login-password').value;
+                try { await signInWithEmailAndPassword(auth, email, password); } 
+                catch (error) { document.getElementById('auth-error').textContent = "Email ou senha inválidos."; document.getElementById('auth-error').classList.remove('hidden'); }
+            });
 
-        const setupModal = (buttonId, modalId, closeButtonId) => {
-            const modal = document.getElementById(modalId);
-            const closeBtn = document.getElementById(closeButtonId);
-            const openBtn = document.getElementById(buttonId);
-            
-            const open = () => modal.classList.remove('hidden');
-            const close = () => modal.classList.add('hidden');
+            document.getElementById('signup-form')?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const email = document.getElementById('signup-email').value;
+                const password = document.getElementById('signup-password').value;
+                try { await createUserWithEmailAndPassword(auth, email, password); }
+                catch (error) { document.getElementById('auth-error').textContent = "Erro ao criar conta: " + error.message; document.getElementById('auth-error').classList.remove('hidden'); }
+            });
 
-            if(openBtn) openBtn.addEventListener('click', () => modal.classList.add('flex'));
-            if(closeBtn) closeBtn.addEventListener('click', () => modal.classList.remove('flex'));
-        };
-
-        const setupOverlayModal = (buttonId, modalId, closeButtonId) => {
-            const modal = document.getElementById(modalId);
-            const openBtn = document.getElementById(buttonId);
-            const closeBtn = document.getElementById(closeButtonId);
-            if(openBtn) openBtn.addEventListener('click', () => modal.classList.remove('hidden'));
-            if(closeBtn) closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
-        };
-
-        setupOverlayModal('new-chat-button', 'new-chat-modal', 'cancel-new-chat');
-        setupModal('profile-button', 'profile-modal', 'close-profile-modal');
-        setupOverlayModal('new-group-button', 'new-group-modal', 'close-new-group-modal');
-        setupOverlayModal('new-channel-button', 'new-channel-modal', 'close-new-channel-modal');
+            document.getElementById('show-signup-link')?.addEventListener('click', (e) => { e.preventDefault(); document.getElementById('login-view').classList.add('hidden'); document.getElementById('signup-view').classList.remove('hidden'); });
+            document.getElementById('show-login-link')?.addEventListener('click', (e) => { e.preventDefault(); document.getElementById('signup-view').classList.add('hidden'); document.getElementById('login-view').classList.remove('hidden'); });
+        }
         
-        document.getElementById('cancel-delete-chat').addEventListener('click', () => {
-            document.getElementById('delete-chat-modal').classList.add('hidden');
-        });
-        document.getElementById('confirm-delete-chat').addEventListener('click', () => {
-            const modal = document.getElementById('delete-chat-modal');
-            const chatId = modal.dataset.chatId;
-            deleteChat(chatId);
-            modal.classList.add('hidden');
-        });
+        function setupMainAppListeners() {
+            document.getElementById('logout-button')?.addEventListener('click', handleLogout);
+            document.getElementById('dark-mode-toggle')?.addEventListener('change', (e) => {
+                state.theme = e.target.checked ? 'dark' : 'light';
+                localStorage.setItem('theme', state.theme);
+                document.documentElement.classList.toggle('dark', e.target.checked);
+            });
 
+            const toggleMenu = () => { ui.sideMenu.classList.toggle('open'); ui.menuOverlay.classList.toggle('hidden'); };
+            document.getElementById('hamburger-menu-button')?.addEventListener('click', toggleMenu);
+            ui.menuOverlay?.addEventListener('click', toggleMenu);
+
+            document.getElementById('profile-button')?.addEventListener('click', () => {
+                 const content = `<div class="flex flex-col items-center space-y-4">
+                    <img src="https://placehold.co/96x96/E2E8F0/4A5568?text=${state.userData.username.charAt(0).toUpperCase()}" alt="Avatar" class="w-24 h-24 rounded-full">
+                    <h4 class="text-2xl font-bold">${state.userData.username}</h4>
+                    <p class="text-text-secondary-light dark:text-text-secondary-dark">${state.userData.email}</p>
+                </div>`;
+                renderModal("Meu Perfil", content);
+            });
+            
+            document.getElementById('new-chat-button')?.addEventListener('click', () => {
+                const content = `<div>
+                    <input id="user-search-input" type="text" placeholder="Digite um nome de usuário..." class="w-full px-4 py-2 border rounded-lg bg-bg-light dark:bg-bg-dark focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <div id="user-search-results" class="mt-4 max-h-60 overflow-y-auto"><p class="text-center text-text-secondary-light dark:text-text-secondary-dark">Digite para procurar usuários.</p></div>
+                </div>`;
+                renderModal("Iniciar Novo Chat", content);
+                document.getElementById('user-search-input').addEventListener('input', (e) => handleSearchUsers(e.target.value));
+            });
+        }
+
+        async function handleSearchUsers(searchTerm) {
+            const resultsContainer = document.getElementById('user-search-results');
+            if (!searchTerm.trim()) { resultsContainer.innerHTML = ''; return; }
+            resultsContainer.innerHTML = '<p class="text-center">Procurando...</p>';
+
+            try {
+                const q = query(collection(db, "users"), where("username", ">=", searchTerm), where("username", "<=", searchTerm + '\uf8ff'));
+                const querySnapshot = await getDocs(q);
+                let usersHTML = querySnapshot.docs
+                    .map(doc => doc.data())
+                    .filter(user => user.uid !== state.currentUser.uid)
+                    .map(user => `<div data-uid="${user.uid}" data-username="${user.username}" class="user-search-item flex items-center justify-between p-2 rounded-lg hover:bg-hover-light dark:hover:bg-hover-dark cursor-pointer">
+                            <span>${user.username}</span>
+                            <button class="text-sm bg-blue-500 text-white px-3 py-1 rounded-md">Conversar</button>
+                        </div>`)
+                    .join('');
+                resultsContainer.innerHTML = usersHTML || '<p class="text-center">Nenhum usuário encontrado.</p>';
+                document.querySelectorAll('.user-search-item').forEach(item => {
+                    item.addEventListener('click', () => handleStartChat(item.dataset.uid, item.dataset.username));
+                });
+            } catch (error) { console.error("Erro ao procurar usuários:", error); resultsContainer.innerHTML = '<p class="text-center text-red-500">Ocorreu um erro.</p>'; }
+        }
+
+        function setupChatWindowListeners(chatId) {
+            document.getElementById('message-form')?.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const input = document.getElementById('message-input');
+                handleSendMessage(chatId, input.value);
+                input.value = '';
+            });
+
+            document.getElementById('back-to-chat-list-button')?.addEventListener('click', () => {
+                if (state.listeners.messages) state.listeners.messages();
+                state.activeChatId = null;
+                ui.chatWindow.classList.add('hidden');
+                ui.chatListColumn.classList.remove('hidden');
+            });
+        }
     </script>
 </body>
 </html>
