@@ -3,447 +3,535 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Clone do Discord com Firebase</title>
+    <title>Discord Clone - Compartilhamento de Áudio</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { font-family: 'Inter', sans-serif; }
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #2f3136; }
-        ::-webkit-scrollbar-thumb { background: #202225; border-radius: 4px; }
-        .active-channel { background-color: #393c43; }
-        .modal-backdrop { background-color: rgba(0, 0, 0, 0.85); }
-        #video-call-modal video { width: 100%; height: 100%; object-fit: cover; border-radius: 0.5rem; }
-        .video-grid { width: 100%; height: calc(100% - 100px); }
-        .notification-dot {
-            width: 10px;
-            height: 10px;
-            background-color: #43b581;
-            border-radius: 50%;
-            animation: pulse 2s infinite;
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
         }
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(67, 181, 129, 0.7); }
-            70% { box-shadow: 0 0 0 10px rgba(67, 181, 129, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(67, 181, 129, 0); }
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .video-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1rem;
+        }
+        .video-container {
+            position: relative;
+            background-color: #202225;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            aspect-ratio: 16 / 9;
+        }
+        .video-container video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .video-container .user-label {
+            position: absolute;
+            bottom: 8px;
+            left: 8px;
+            background-color: rgba(0, 0, 0, 0.6);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
         }
     </style>
 </head>
-<body class="bg-[#36393f] text-gray-300">
+<body class="bg-[#36393f] text-gray-300 flex h-screen">
 
-    <!-- Tela de Autenticação -->
-    <div id="auth-container" class="flex items-center justify-center h-screen">
-        <div class="w-full max-w-md p-8 space-y-6 bg-[#2f3136] rounded-lg shadow-lg">
+    <!-- Sidebar de Canais -->
+    <div class="w-60 bg-[#2f3136] flex flex-col">
+        <div class="p-4 font-bold text-white border-b border-gray-900/50">
+            Servidor Principal
+        </div>
+        <div class="flex-1 p-2 space-y-2 overflow-y-auto scrollbar-hide">
             <div>
-                <h2 class="text-2xl font-bold text-center text-white">Bem-vindo de volta!</h2>
-                <p class="text-center text-gray-400">Estamos muito animados em te ver novamente!</p>
-            </div>
-            <form id="login-form" class="space-y-4">
-                <div>
-                    <label for="login-email" class="block text-sm font-medium text-gray-400">E-MAIL</label>
-                    <input type="email" id="login-email" required class="w-full px-3 py-2 mt-1 text-white bg-[#202225] border border-[#202225] rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500">
+                <h2 class="px-2 text-xs font-bold tracking-wider text-gray-400 uppercase">Canais de Voz</h2>
+                <div id="voice-channel" class="flex items-center p-2 mt-1 rounded cursor-pointer hover:bg-gray-700/50">
+                    <i class="fas fa-volume-up w-5 mr-2 text-gray-400"></i>
+                    <span>Sala de Voz</span>
                 </div>
-                <div>
-                    <label for="login-password" class="block text-sm font-medium text-gray-400">SENHA</label>
-                    <input type="password" id="login-password" required class="w-full px-3 py-2 mt-1 text-white bg-[#202225] border border-[#202225] rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500">
-                </div>
-                <p id="auth-error" class="text-sm text-red-500 hidden"></p>
-                <button type="submit" class="w-full py-2 font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700">Entrar</button>
-            </form>
-            <p class="text-sm text-center text-gray-400">
-                Precisa de uma conta? <button id="show-signup" class="font-medium text-blue-500 hover:underline">Registre-se</button>
-            </p>
-        </div>
-    </div>
-
-    <!-- App Principal (Inicialmente Oculto) -->
-    <div id="app-container" class="hidden h-screen">
-        <div class="flex h-full antialiased">
-            <!-- Coluna de Canais -->
-            <div class="flex flex-col w-64 bg-[#2f3136]">
-                <header class="flex items-center p-4 font-bold text-white border-b border-black/20 shadow-md h-14">
-                    <form id="search-user-form" class="w-full">
-                        <input type="text" id="search-user-input" class="w-full px-2 py-1 text-sm bg-[#202225] rounded-md focus:outline-none" placeholder="Encontre ou comece uma conversa">
-                    </form>
-                </header>
-                <div id="channel-list" class="flex-1 p-2 space-y-1 overflow-y-auto"></div>
-                <!-- Painel do Usuário -->
-                <footer class="flex items-center justify-between p-2 bg-[#292b2f] h-16 mt-auto">
-                    <div id="user-panel" class="flex items-center cursor-pointer"></div>
-                    <button id="logout-button" class="p-2 text-gray-400 rounded-md hover:bg-gray-600 hover:text-white">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
-                    </button>
-                </footer>
-            </div>
-            <!-- Área do Chat -->
-            <main class="flex flex-col flex-1 bg-[#36393f] min-w-0">
-                <header class="flex items-center justify-between flex-shrink-0 p-4 border-b border-black/20 shadow-md h-14">
-                    <div id="chat-header-info" class="flex items-center"></div>
-                    <button id="video-call-button" class="hidden text-gray-400 hover:text-white transition-colors">
-                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M17,10.5V7A1,1 0 0,0 16,6H4A1,1 0 0,0 3,7V17A1,1 0 0,0 4,18H16A1,1 0 0,0 17,17V13.5L21,17.5V6.5L17,10.5Z"/></svg>
-                    </button>
-                </header>
-                <div id="chat-messages" class="flex-1 p-4 space-y-4 overflow-y-auto"></div>
-                <div id="message-input-container" class="flex-shrink-0 p-4 hidden">
-                    <form id="message-form" class="flex items-center p-2 bg-[#40444b] rounded-lg">
-                        <input id="message-input" type="text" class="flex-1 text-white bg-transparent focus:outline-none" placeholder="">
-                    </form>
-                </div>
-            </main>
-        </div>
-    </div>
-
-    <!-- Modals -->
-    <div id="video-call-modal" class="fixed inset-0 z-50 flex-col items-center justify-center hidden modal-backdrop text-white">
-        <div class="video-grid p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="bg-black rounded-lg flex items-center justify-center relative">
-                <video id="local-video" autoplay playsinline muted class="transform -scale-x-100"></video>
-                <p id="local-video-name" class="absolute bottom-2 left-2"></p>
-            </div>
-            <div class="bg-black rounded-lg flex items-center justify-center relative">
-                <div id="remote-video-placeholder" class="text-center"></div>
-                <p id="remote-video-name" class="absolute bottom-2 left-2"></p>
             </div>
         </div>
-        <div class="absolute bottom-0 left-0 right-0 flex justify-center p-4">
-            <button id="video-call-close" class="p-4 bg-red-600 rounded-full hover:bg-red-500 transition-colors">
-                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12,9C10.4,9 8.85,9.25 7.4,9.72V12.81C7.4,12.81 7.4,12.81 7.4,12.81C8.7,14.19 10.2,15 12,15C13.8,15 15.3,14.19 16.6,12.81C16.6,12.81 16.6,12.81 16.6,12.81V9.72C15.15,9.25 13.6,9 12,9M20,15.5C20,15.5 20,15.5 20,15.5V12C20,11.28 19.6,10.61 19.04,10.22L19.03,10.21C18.5,9.85 17.82,9.72 17.21,9.86L17.16,9.88C15.88,10.26 14,10.76 12,10.76C10,10.76 8.12,10.26 6.84,9.88L6.79,9.86C6.18,9.72 5.5,9.85 4.97,10.21L4.96,10.22C4.4,10.61 4,11.28 4,12V15.5C4,15.5 4,15.5 4,15.5C4,18.15 7.58,20.28 12,20.28C16.42,20.28 20,18.15 20,15.5Z"/></svg>
+        <div id="user-info-panel" class="p-2 bg-[#292b2f] flex items-center justify-between">
+            <div class="flex items-center">
+                <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center mr-2">
+                    <i class="fas fa-user text-white"></i>
+                </div>
+                <div class="text-sm">
+                    <div class="font-semibold text-white truncate" id="user-id-display">Carregando...</div>
+                    <div id="connection-status" class="text-xs text-red-500">Desconectado</div>
+                </div>
+            </div>
+             <button id="copy-id-button" title="Copiar ID de Usuário" class="px-2 py-1 text-xs text-gray-400 bg-gray-700 rounded hover:bg-gray-600">
+                <i class="fas fa-copy"></i>
             </button>
         </div>
     </div>
 
-<script type="module">
-    // Importações do Firebase
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-    import { 
-        getAuth, 
-        createUserWithEmailAndPassword, 
-        signInWithEmailAndPassword, 
-        signOut, 
-        onAuthStateChanged 
-    } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
-    import { 
-        getFirestore, 
-        doc, 
-        setDoc, 
-        getDoc, 
-        collection, 
-        query, 
-        where, 
-        getDocs,
-        addDoc,
-        updateDoc,
-        onSnapshot,
-        orderBy,
-        serverTimestamp
-    } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
-
-    // Configuração do Firebase que você forneceu
-    const firebaseConfig = {
-      apiKey: "AIzaSyB98-bStjweF82UALPiw2YiwKKn1IhZASE",
-      authDomain: "videochamada11.firebaseapp.com",
-      projectId: "videochamada11",
-      storageBucket: "videochamada11.appspot.com",
-      messagingSenderId: "872635256324",
-      appId: "1:872635256324:web:12a6051efe8796730f2f51"
-    };
-
-    // Inicializar Firebase
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-
-    // --- ELEMENTOS DO DOM ---
-    const authContainer = document.getElementById('auth-container');
-    const appContainer = document.getElementById('app-container');
-    const loginForm = document.getElementById('login-form');
-    const showSignup = document.getElementById('show-signup');
-    const authError = document.getElementById('auth-error');
-    const logoutButton = document.getElementById('logout-button');
-    const userPanel = document.getElementById('user-panel');
-    const channelListEl = document.getElementById('channel-list');
-    const chatHeaderInfoEl = document.getElementById('chat-header-info');
-    const chatMessagesEl = document.getElementById('chat-messages');
-    const messageForm = document.getElementById('message-form');
-    const messageInput = document.getElementById('message-input');
-    const messageInputContainer = document.getElementById('message-input-container');
-    const searchUserForm = document.getElementById('search-user-form');
-    const searchUserInput = document.getElementById('search-user-input');
-    const videoCallModal = document.getElementById('video-call-modal');
-    const videoCallButton = document.getElementById('video-call-button');
-    const videoCallClose = document.getElementById('video-call-close');
-    const localVideo = document.getElementById('local-video');
-
-    let currentChannelId = null;
-    let localStream = null;
-    let unsubscribeMessages = null; 
-    let unsubscribeChannels = null; 
-    let lastReadTimestamps = {}; // Objeto para armazenar o timestamp da última leitura de cada canal
-
-    // --- LÓGICA DE AUTENTICAÇÃO ---
-    onAuthStateChanged(auth, async (user) => {
-        if (user) {
-            authContainer.classList.add('hidden');
-            appContainer.classList.remove('hidden');
-            await setupAppForUser(user);
-        } else {
-            authContainer.classList.remove('hidden');
-            appContainer.classList.add('hidden');
-            if (unsubscribeChannels) unsubscribeChannels();
-            if (unsubscribeMessages) unsubscribeMessages();
-            lastReadTimestamps = {}; // Limpa os timestamps ao deslogar
-        }
-    });
-
-    loginForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const email = document.getElementById('login-email').value;
-        const password = document.getElementById('login-password').value;
-        const isSignup = loginForm.querySelector('button[type=submit]').textContent === 'Registrar';
-
-        if (isSignup) {
-            createUserWithEmailAndPassword(auth, email, password)
-                .then(async (userCredential) => {
-                    const user = userCredential.user;
-                    const username = email.split('@')[0].replace(/[^a-zA-Z0-9]/g, ''); // Garante um username válido
-                    await setDoc(doc(db, "users", user.uid), {
-                        uid: user.uid,
-                        email: user.email,
-                        username: username,
-                        avatar: `https://placehold.co/40x40/7289da/ffffff?text=${username.charAt(0).toUpperCase()}`
-                    });
-                })
-                .catch(handleAuthError);
-        } else {
-            signInWithEmailAndPassword(auth, email, password).catch(handleAuthError);
-        }
-    });
-
-    showSignup.addEventListener('click', () => {
-        const isLogin = showSignup.textContent === 'Registre-se';
-        loginForm.querySelector('h2').textContent = isLogin ? 'Criar conta' : 'Bem-vindo de volta!';
-        loginForm.querySelector('button[type=submit]').textContent = isLogin ? 'Registrar' : 'Entrar';
-        showSignup.textContent = isLogin ? 'Já tem uma conta? Entre' : 'Registre-se';
-        authError.classList.add('hidden');
-    });
-
-    logoutButton.addEventListener('click', () => {
-        signOut(auth);
-    });
-
-    function handleAuthError(error) {
-        let message = "Ocorreu um erro. Tente novamente.";
-        if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-            message = "E-mail ou senha incorretos.";
-        } else if (error.code === 'auth/email-already-in-use') {
-            message = "Este e-mail já está em uso.";
-        } else if (error.code === 'auth/weak-password') {
-            message = "A senha deve ter pelo menos 6 caracteres.";
-        }
-        authError.textContent = message;
-        authError.classList.remove('hidden');
-    }
-
-    // --- LÓGICA PRINCIPAL DO APP ---
-    async function setupAppForUser(user) {
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        const userData = userDoc.data();
-
-        userPanel.innerHTML = `
-            <div class="relative"><img class="w-10 h-10 rounded-full" src="${userData.avatar}" alt="Avatar"><div class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-[#292b2f] rounded-full"></div></div>
-            <div class="ml-2"><p class="text-sm font-semibold text-white">${userData.username}</p><p class="text-xs text-gray-400">${userData.email}</p></div>`;
-        
-        const q = query(collection(db, "chats"), where("users", "array-contains", user.uid));
-        unsubscribeChannels = onSnapshot(q, async (snapshot) => {
-            const channels = [];
-            for (const chatDoc of snapshot.docs) {
-                const chatData = chatDoc.data();
-                const friendId = chatData.users.find(id => id !== user.uid);
-                const friendDoc = await getDoc(doc(db, "users", friendId));
-                channels.push({ id: chatDoc.id, ...chatData, friend: friendDoc.data() });
-            }
-            renderChannels(channels);
-        });
-    }
-
-    function renderChannels(channels) {
-        channelListEl.innerHTML = '';
-        if (channels.length === 0) {
-            channelListEl.innerHTML = `<p class="px-2 text-sm text-gray-400">Nenhuma conversa encontrada.</p>`;
-            return;
-        }
-        channels.forEach(channel => {
-            const channelEl = document.createElement('a');
-            channelEl.href = '#';
-            channelEl.className = `channel-item flex items-center justify-between px-2 py-1 rounded hover:bg-[#393c43] ${channel.id === currentChannelId ? 'active-channel' : ''}`;
-            channelEl.dataset.id = channel.id;
-
-            // Lógica de Notificação
-            const hasUnread = channel.lastMessage && channel.lastMessage.timestamp > (lastReadTimestamps[channel.id] || 0) && channel.id !== currentChannelId;
-            const notificationDot = hasUnread ? `<div class="notification-dot"></div>` : '';
-
-            channelEl.innerHTML = `
-                <div class="flex items-center">
-                    <img class="w-8 h-8 rounded-full mr-2" src="${channel.friend.avatar}" alt="Avatar">
-                    <span>${channel.friend.username}</span>
-                </div>
-                ${notificationDot}
-            `;
-            channelListEl.appendChild(channelEl);
-        });
-    }
+    <!-- Conteúdo Principal -->
+    <div class="flex-1 flex flex-col bg-[#36393f]">
+        <div class="p-4 border-b shadow-md border-gray-900/50 text-white font-semibold">
+            <i class="fas fa-hashtag mr-2 text-gray-500"></i>
+            Bem-vindo!
+        </div>
+        <div id="main-content" class="flex-1 p-4 overflow-y-auto">
+            <div id="videos-grid" class="video-grid">
+                <!-- Vídeos dos participantes serão adicionados aqui -->
+            </div>
+            <div id="placeholder-content" class="flex flex-col items-center justify-center h-full text-center text-gray-500">
+                <i class="fas fa-headset fa-4x mb-4"></i>
+                <h2 class="text-2xl font-semibold">Você não está em um canal de voz.</h2>
+                <p>Clique em "Sala de Voz" à esquerda para entrar e conversar.</p>
+            </div>
+        </div>
+        <div id="call-controls" class="p-2 bg-[#2f3136] border-t border-gray-900/50 flex items-center justify-center space-x-4 hidden">
+            <button id="toggle-mic-button" class="w-12 h-12 bg-gray-600 rounded-full flex items-center justify-center text-white hover:bg-gray-500 transition-colors" title="Mutar Microfone">
+                <i class="fas fa-microphone"></i>
+            </button>
+            <button id="share-audio-button" class="w-12 h-12 bg-gray-600 rounded-full flex items-center justify-center text-white hover:bg-gray-500 transition-colors" title="Compartilhar Áudio/Tela">
+                <i class="fas fa-desktop"></i>
+            </button>
+            <button id="leave-call-button" class="w-16 h-12 bg-red-600 rounded-full flex items-center justify-center text-white hover:bg-red-500 transition-colors" title="Sair da Chamada">
+                <i class="fas fa-phone-slash"></i>
+            </button>
+        </div>
+    </div>
     
-    async function selectChannel(channelId) {
-        if (unsubscribeMessages) unsubscribeMessages();
-        currentChannelId = channelId;
-        
-        const chatDocRef = doc(db, "chats", channelId);
-        const chatDoc = await getDoc(chatDocRef);
-        const chatData = chatDoc.data();
-        
-        // Atualiza o timestamp da última leitura para remover a notificação
-        if (chatData.lastMessage) {
-            lastReadTimestamps[channelId] = chatData.lastMessage.timestamp;
-        }
-        
-        // Re-renderiza os canais para remover o ponto de notificação
-        const q = query(collection(db, "chats"), where("users", "array-contains", auth.currentUser.uid));
-        const snapshot = await getDocs(q);
-        const channels = [];
-        for (const doc of snapshot.docs) {
-            const data = doc.data();
-            const friendId = data.users.find(id => id !== auth.currentUser.uid);
-            const friendDoc = await getDoc(doc(db, "users", friendId));
-            channels.push({ id: doc.id, ...data, friend: friendDoc.data() });
-        }
-        renderChannels(channels);
-
-        const friendId = chatData.users.find(id => id !== auth.currentUser.uid);
-        const friendDoc = await getDoc(doc(db, "users", friendId));
-        const friendData = friendDoc.data();
-        chatHeaderInfoEl.innerHTML = `<img class="w-8 h-8 rounded-full mr-3" src="${friendData.avatar}" alt="Avatar"><h2 class="text-lg font-semibold text-white">${friendData.username}</h2>`;
-        videoCallButton.classList.remove('hidden');
-        messageInputContainer.classList.remove('hidden');
-        messageInput.placeholder = `Conversar com @${friendData.username}`;
-
-        const messagesRef = collection(db, "chats", channelId, "messages");
-        const messagesQuery = query(messagesRef, orderBy("timestamp"));
-        
-        unsubscribeMessages = onSnapshot(messagesQuery, async (snapshot) => {
-            chatMessagesEl.innerHTML = '';
-            for (const messageDoc of snapshot.docs) {
-                const messageData = messageDoc.data();
-                const senderDoc = await getDoc(doc(db, "users", messageData.senderId));
-                const senderData = senderDoc.data();
-                const msgEl = createMessageElement(senderData, messageData);
-                chatMessagesEl.appendChild(msgEl);
-            }
-            chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
-        });
-    }
-
-    function createMessageElement(sender, message) {
-        const messageEl = document.createElement('div');
-        messageEl.className = 'flex items-start';
-        const time = message.timestamp ? message.timestamp.toDate().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit'}) : '';
-        messageEl.innerHTML = `
-            <img class="w-10 h-10 mt-1 rounded-full" src="${sender.avatar}" alt="Avatar">
-            <div class="ml-3">
-                <p class="font-semibold text-white">${sender.username} <span class="ml-2 text-xs font-normal text-gray-400">${time}</span></p>
-                <p class="text-white break-words">${message.text}</p>
-            </div>`;
-        return messageEl;
-    }
-
-    messageForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const text = messageInput.value.trim();
-        if (text === '' || !currentChannelId) return;
-
-        const messagesRef = collection(db, "chats", currentChannelId, "messages");
-        const chatRef = doc(db, "chats", currentChannelId);
-
-        // Adiciona a mensagem e atualiza o chat principal com a última mensagem
-        await addDoc(messagesRef, {
-            text: text,
-            senderId: auth.currentUser.uid,
-            timestamp: serverTimestamp()
-        });
-        await updateDoc(chatRef, {
-            lastMessage: {
-                text: text,
-                timestamp: serverTimestamp()
-            }
-        });
-        messageInput.value = '';
-    });
+    <!-- Modal de Notificação -->
+    <div id="notification-modal" class="hidden fixed top-5 right-5 bg-green-500 text-white py-2 px-4 rounded-lg shadow-lg transition-opacity duration-300 z-50">
+        ID copiado para a área de transferência!
+    </div>
     
-    searchUserForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const username = searchUserInput.value.trim();
-        if(!username) return;
+    <!-- Modal de Erro -->
+    <div id="error-modal" class="hidden fixed top-5 left-1/2 -translate-x-1/2 bg-red-600 text-white py-3 px-6 rounded-lg shadow-lg transition-opacity duration-300 z-50">
+        <span id="error-message"></span>
+    </div>
 
-        const usersRef = collection(db, "users");
-        const q = query(usersRef, where("username", "==", username));
-        const querySnapshot = await getDocs(q);
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, deleteDoc, getDocs, writeBatch, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        if (querySnapshot.empty) {
-            alert("Usuário não encontrado.");
-            return;
-        }
+        // --- Configuração do Firebase ---
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { apiKey: "YOUR_API_KEY", authDomain: "...", projectId: "..." };
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-discord-clone';
 
-        const friend = querySnapshot.docs[0].data();
-        if (friend.uid === auth.currentUser.uid) {
-            alert("Você não pode conversar consigo mesmo.");
-            return;
-        }
-        
-        // Lógica corrigida para criar/encontrar chat
-        const currentUser = auth.currentUser;
-        const chatId = [currentUser.uid, friend.uid].sort().join('_');
-        const chatRef = doc(db, "chats", chatId);
-        const chatDoc = await getDoc(chatRef);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        setLogLevel('debug'); // Habilita logs detalhados para depuração
 
-        if (chatDoc.exists()) {
-            selectChannel(chatId);
-        } else {
-            await setDoc(chatRef, {
-                users: [currentUser.uid, friend.uid],
-                createdAt: serverTimestamp(),
-                lastMessage: null
+        // --- Variáveis Globais ---
+        let userId;
+        let localStream;
+        let screenStream;
+        let originalAudioTrack;
+        let isMuted = false;
+        let isSharingAudio = false;
+        const peerConnections = {};
+        const voiceChannelId = 'general';
+
+        const servers = {
+            iceServers: [
+                { urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] },
+            ],
+            iceCandidatePoolSize: 10,
+        };
+
+        // --- Elementos da UI ---
+        const ui = {
+            voiceChannel: document.getElementById('voice-channel'),
+            videosGrid: document.getElementById('videos-grid'),
+            placeholderContent: document.getElementById('placeholder-content'),
+            callControls: document.getElementById('call-controls'),
+            connectionStatus: document.getElementById('connection-status'),
+            userIdDisplay: document.getElementById('user-id-display'),
+            copyIdButton: document.getElementById('copy-id-button'),
+            notificationModal: document.getElementById('notification-modal'),
+            errorModal: document.getElementById('error-modal'),
+            errorMessage: document.getElementById('error-message'),
+            toggleMicButton: document.getElementById('toggle-mic-button'),
+            shareAudioButton: document.getElementById('share-audio-button'),
+            leaveCallButton: document.getElementById('leave-call-button'),
+        };
+
+        // --- Funções Principais ---
+
+        async function main() {
+            try {
+                // Autentica o usuário. Usa o token customizado se disponível, senão, anonimamente.
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Authentication failed:", error);
+                showError("Falha na autenticação.");
+            }
+            
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    userId = user.uid;
+                    ui.userIdDisplay.textContent = `${userId}`; // Mostra o ID completo
+                    ui.copyIdButton.onclick = () => copyToClipboard(userId);
+                    
+                    await cleanUpFirestoreData(userId);
+                } else {
+                    console.log("Usuário desconectado.");
+                    ui.userIdDisplay.textContent = 'Desconectado';
+                }
             });
-            selectChannel(chatId);
         }
-        searchUserInput.value = '';
-    });
-    
-    channelListEl.addEventListener('click', (e) => {
-        const channelItem = e.target.closest('.channel-item');
-        if (channelItem) {
-            e.preventDefault();
-            selectChannel(channelItem.dataset.id);
-        }
-    });
 
-    // --- VIDEOCHAMADA ---
-    videoCallButton.addEventListener('click', async () => {
-        try {
-            localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-            localVideo.srcObject = localStream;
-            videoCallModal.classList.remove('hidden');
-        } catch (error) {
-            alert("Não foi possível acessar sua câmera. Verifique as permissões.");
-        }
-    });
-    videoCallClose.addEventListener('click', () => {
-        if (localStream) {
-            localStream.getTracks().forEach(track => track.stop());
-        }
-        localVideo.srcObject = null;
-        localStream = null;
-        videoCallModal.classList.add('hidden');
-    });
+        async function joinVoiceChannel() {
+            if (!userId) {
+                showError("Você precisa estar autenticado para entrar.");
+                console.error("Usuário não autenticado.");
+                return;
+            }
 
-</script>
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                originalAudioTrack = localStream.getAudioTracks()[0];
+                addVideoStream(userId, localStream, true);
+
+                ui.placeholderContent.classList.add('hidden');
+                ui.callControls.classList.remove('hidden');
+                ui.connectionStatus.textContent = 'Conectado';
+                ui.connectionStatus.className = 'text-xs text-green-500';
+
+                // CORREÇÃO: Usa o caminho público do Firestore
+                const basePath = `artifacts/${appId}/public/data/channels/${voiceChannelId}`;
+                const membersCol = collection(db, `${basePath}/members`);
+                const signalsCol = collection(db, `${basePath}/signals/${userId}`);
+
+                await setDoc(doc(membersCol, userId), { id: userId, joinedAt: new Date() });
+
+                onSnapshot(membersCol, (snapshot) => {
+                    snapshot.docChanges().forEach(async (change) => {
+                        const remoteUserId = change.doc.id;
+                        if (remoteUserId === userId) return;
+
+                        if (change.type === 'added') {
+                            console.log(`Novo membro detectado: ${remoteUserId}. Criando conexão.`);
+                            createPeerConnection(remoteUserId, true);
+                        }
+                        if (change.type === 'removed') {
+                            console.log(`Membro ${remoteUserId} saiu. Fechando conexão.`);
+                            closePeerConnection(remoteUserId);
+                        }
+                    });
+                });
+
+                onSnapshot(signalsCol, (snapshot) => {
+                    snapshot.docChanges().forEach(async (change) => {
+                        if (change.type === 'added') {
+                            const data = change.doc.data();
+                            const remoteUserId = data.from;
+                            
+                            if (!peerConnections[remoteUserId] && (data.offer || data.iceCandidate)) {
+                                 createPeerConnection(remoteUserId, false);
+                            }
+                            
+                            const pc = peerConnections[remoteUserId];
+                            if(!pc) return;
+
+                            if (data.offer) {
+                                console.log(`Recebendo oferta de ${remoteUserId}`);
+                                await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+                                const answer = await pc.createAnswer();
+                                await pc.setLocalDescription(answer);
+                                await sendSignal(remoteUserId, { answer: pc.localDescription.toJSON() });
+                            } else if (data.answer) {
+                                console.log(`Recebendo resposta de ${remoteUserId}`);
+                                if (pc.signalingState !== 'stable') {
+                                    await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+                                }
+                            } else if (data.iceCandidate) {
+                                try {
+                                    await pc.addIceCandidate(new RTCIceCandidate(data.iceCandidate));
+                                } catch (e) {
+                                    console.error('Erro ao adicionar ICE candidate:', e);
+                                }
+                            }
+                            await deleteDoc(change.doc.ref);
+                        }
+                    });
+                });
+
+            } catch (error) {
+                console.error("Erro ao entrar no canal de voz:", error);
+                showError("Câmera/microfone não acessível. Verifique as permissões.");
+            }
+        }
+        
+        function createPeerConnection(remoteUserId, isInitiator) {
+            if (peerConnections[remoteUserId]) return;
+
+            console.log(`Criando PeerConnection para ${remoteUserId}. Iniciador: ${isInitiator}`);
+            const pc = new RTCPeerConnection(servers);
+            peerConnections[remoteUserId] = pc;
+
+            localStream.getTracks().forEach(track => {
+                pc.addTrack(track, localStream);
+            });
+
+            pc.onicecandidate = event => {
+                if (event.candidate) {
+                    sendSignal(remoteUserId, { iceCandidate: event.candidate.toJSON() });
+                }
+            };
+
+            pc.ontrack = event => {
+                console.log(`Track recebida de ${remoteUserId}`);
+                const remoteStream = event.streams[0];
+                addVideoStream(remoteUserId, remoteStream);
+            };
+
+            pc.oniceconnectionstatechange = () => {
+                if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'closed') {
+                     console.log(`Conexão com ${remoteUserId} falhou/fechou.`);
+                     closePeerConnection(remoteUserId);
+                }
+            };
+
+            if (isInitiator) {
+                pc.createOffer()
+                    .then(offer => pc.setLocalDescription(offer))
+                    .then(() => {
+                        sendSignal(remoteUserId, { offer: pc.localDescription.toJSON() });
+                    })
+                    .catch(e => console.error("Erro ao criar oferta:", e));
+            }
+        }
+
+        async function sendSignal(toUserId, data) {
+            const signalData = { ...data, from: userId, timestamp: new Date() };
+            // CORREÇÃO: Usa o caminho público do Firestore
+            const signalDocRef = doc(collection(db, `artifacts/${appId}/public/data/channels/${voiceChannelId}/signals/${toUserId}`));
+            await setDoc(signalDocRef, signalData);
+        }
+        
+        async function leaveVoiceChannel() {
+            Object.keys(peerConnections).forEach(remoteUserId => {
+                closePeerConnection(remoteUserId);
+            });
+
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+            if (screenStream) {
+                screenStream.getTracks().forEach(track => track.stop());
+                screenStream = null;
+            }
+
+            ui.videosGrid.innerHTML = '';
+            ui.placeholderContent.classList.remove('hidden');
+            ui.callControls.classList.add('hidden');
+            ui.connectionStatus.textContent = 'Desconectado';
+            ui.connectionStatus.className = 'text-xs text-red-500';
+            isSharingAudio = false;
+            updateShareButton();
+
+            if (userId) {
+                // CORREÇÃO: Usa o caminho público do Firestore
+                const memberDoc = doc(db, `artifacts/${appId}/public/data/channels/${voiceChannelId}/members`, userId);
+                await deleteDoc(memberDoc);
+            }
+             console.log("Saiu do canal de voz.");
+        }
+
+        function closePeerConnection(remoteUserId) {
+            if (peerConnections[remoteUserId]) {
+                peerConnections[remoteUserId].close();
+                delete peerConnections[remoteUserId];
+            }
+            const videoElement = document.getElementById(`video-${remoteUserId}`);
+            if (videoElement) {
+                videoElement.remove();
+            }
+        }
+
+        async function toggleMicrophone() {
+            if (!localStream) return;
+            isMuted = !isMuted;
+            localStream.getAudioTracks().forEach(track => track.enabled = !isMuted);
+            
+            const icon = ui.toggleMicButton.querySelector('i');
+            icon.className = isMuted ? 'fas fa-microphone-slash' : 'fas fa-microphone';
+            ui.toggleMicButton.classList.toggle('bg-red-600', isMuted);
+            ui.toggleMicButton.classList.toggle('bg-gray-600', !isMuted);
+        }
+
+        async function shareAudio() {
+            if (isSharingAudio) {
+                stopSharing();
+                return;
+            }
+
+            try {
+                screenStream = await navigator.mediaDevices.getDisplayMedia({
+                    video: true,
+                    audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 44100 }
+                });
+
+                const screenAudioTrack = screenStream.getAudioTracks()[0];
+                if (screenAudioTrack) {
+                    isSharingAudio = true;
+                    for (const peerId in peerConnections) {
+                        const pc = peerConnections[peerId];
+                        const sender = pc.getSenders().find(s => s.track && s.track.kind === 'audio');
+                        if (sender) {
+                            sender.replaceTrack(screenAudioTrack);
+                        }
+                    }
+                    screenStream.getTracks().forEach(track => track.onended = () => stopSharing());
+                } else {
+                     showError("Áudio da aba/sistema não foi compartilhado. Tente novamente.");
+                     screenStream.getTracks().forEach(track => track.stop());
+                     screenStream = null;
+                }
+                updateShareButton();
+            } catch (err) {
+                console.error("Erro ao compartilhar tela/áudio:", err);
+            }
+        }
+
+        function stopSharing() {
+            if (!isSharingAudio) return;
+            isSharingAudio = false;
+
+             for (const peerId in peerConnections) {
+                const pc = peerConnections[peerId];
+                const sender = pc.getSenders().find(s => s.track && s.track.kind === 'audio');
+                if (sender && originalAudioTrack) {
+                    sender.replaceTrack(originalAudioTrack);
+                }
+            }
+
+            if (screenStream) {
+                screenStream.getTracks().forEach(track => track.stop());
+                screenStream = null;
+            }
+            updateShareButton();
+        }
+
+        // --- Funções Auxiliares ---
+
+        function addVideoStream(id, stream, isLocal = false) {
+            if (document.getElementById(`video-${id}`)) return;
+
+            const container = document.createElement('div');
+            container.id = `video-${id}`;
+            container.className = 'video-container';
+
+            const video = document.createElement('video');
+            video.srcObject = stream;
+            video.autoplay = true;
+            video.playsInline = true;
+            video.muted = isLocal;
+            if (isLocal) {
+                 video.style.transform = "scaleX(-1)";
+            }
+
+            const label = document.createElement('div');
+            label.className = 'user-label';
+            label.textContent = isLocal ? 'Você' : `User ${id.substring(0, 4)}`;
+
+            container.appendChild(video);
+            container.appendChild(label);
+            ui.videosGrid.appendChild(container);
+        }
+
+        function updateShareButton() {
+            const icon = ui.shareAudioButton.querySelector('i');
+            if (isSharingAudio) {
+                ui.shareAudioButton.classList.add('bg-green-600');
+                ui.shareAudioButton.classList.remove('bg-gray-600');
+                icon.className = 'fas fa-stop-circle';
+                ui.shareAudioButton.title = "Parar Compartilhamento";
+            } else {
+                ui.shareAudioButton.classList.remove('bg-green-600');
+                ui.shareAudioButton.classList.add('bg-gray-600');
+                icon.className = 'fas fa-desktop';
+                ui.shareAudioButton.title = "Compartilhar Áudio/Tela";
+            }
+        }
+        
+        function copyToClipboard(text) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                showNotification("ID copiado para a área de transferência!");
+            } catch (err) {
+                console.error('Falha ao copiar texto: ', err);
+                showError("Falha ao copiar o ID.");
+            }
+            document.body.removeChild(textArea);
+        }
+
+        function showNotification(message) {
+            ui.notificationModal.textContent = message;
+            ui.notificationModal.classList.remove('hidden');
+            ui.notificationModal.classList.add('opacity-100');
+            setTimeout(() => {
+                ui.notificationModal.classList.remove('opacity-100');
+                setTimeout(() => ui.notificationModal.classList.add('hidden'), 150);
+            }, 2000);
+        }
+        
+        function showError(message) {
+            ui.errorMessage.textContent = message;
+            ui.errorModal.classList.remove('hidden');
+            ui.errorModal.classList.add('opacity-100');
+            setTimeout(() => {
+                ui.errorModal.classList.remove('opacity-100');
+                setTimeout(() => ui.errorModal.classList.add('hidden'), 150);
+            }, 4000);
+        }
+        
+        async function cleanUpFirestoreData(currentUserId) {
+            // CORREÇÃO: Usa o caminho público do Firestore
+            const basePath = `artifacts/${appId}/public/data/channels/${voiceChannelId}`;
+            await deleteDoc(doc(db, `${basePath}/members`, currentUserId));
+            
+            const signalsQuery = collection(db, `${basePath}/signals/${currentUserId}`);
+            const signalsSnapshot = await getDocs(signalsQuery);
+            const batch = writeBatch(db);
+            signalsSnapshot.docs.forEach(doc => batch.delete(doc.ref));
+            await batch.commit();
+            console.log("Dados antigos do Firestore limpos.");
+        }
+        
+        // --- Listeners de Eventos da UI ---
+        ui.voiceChannel.addEventListener('click', joinVoiceChannel);
+        ui.leaveCallButton.addEventListener('click', leaveVoiceChannel);
+        ui.toggleMicButton.addEventListener('click', toggleMicrophone);
+        ui.shareAudioButton.addEventListener('click', shareAudio);
+        
+        window.addEventListener('beforeunload', leaveVoiceChannel);
+
+        // --- Inicialização ---
+        main();
+
+    </script>
 </body>
 </html>
