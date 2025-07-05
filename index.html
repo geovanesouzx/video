@@ -216,7 +216,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
         import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, collection, query, where, getDocs, addDoc, onSnapshot, serverTimestamp, orderBy, updateDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, collection, query, where, getDocs, addDoc, onSnapshot, serverTimestamp, orderBy, updateDoc, increment } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyB98-bStjweF82UALPiw2YiwKKn1IhZASE",
@@ -248,12 +248,68 @@
         let activeChatId = null;
         let unsubscribeChatList = null;
         let unsubscribeMessages = null;
+        let localChats = {};
+        let localUserChatsMetadata = {};
+
+        // Combina e renderiza a lista de chats
+        function renderChatList() {
+            const chatListEl = document.getElementById('chat-list');
+            chatListEl.innerHTML = '';
+
+            const combinedData = Object.keys(localChats).map(chatId => ({
+                id: chatId,
+                ...localChats[chatId],
+                unreadCount: localUserChatsMetadata[chatId]?.unreadCount || 0
+            }));
+
+            combinedData.sort((a, b) => (b.lastUpdate?.seconds || 0) - (a.lastUpdate?.seconds || 0));
+
+            if (combinedData.length === 0) {
+                chatListEl.innerHTML = `<p class="p-4 text-center text-gray-500">Nenhum chat ainda. Comece uma nova conversa.</p>`;
+                return;
+            }
+
+            combinedData.forEach(chat => {
+                const otherMemberId = chat.members.find(id => id !== currentUser.uid);
+                if (!otherMemberId) return;
+
+                getDoc(doc(db, "users", otherMemberId)).then(userDoc => {
+                    if (!userDoc.exists()) return;
+                    const otherUserName = userDoc.data().username;
+                    const chatEl = document.createElement('div');
+                    chatEl.className = `flex items-center p-4 hover:bg-gray-100 cursor-pointer border-b border-gray-200 ${chat.id === activeChatId ? 'bg-blue-50' : ''}`;
+                    
+                    const unreadBadge = chat.unreadCount > 0 
+                        ? `<span class="bg-blue-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center ml-auto">${chat.unreadCount}</span>`
+                        : '';
+
+                    chatEl.innerHTML = `
+                        <img src="https://placehold.co/48x48/CBD5E0/4A5568?text=${otherUserName.charAt(0).toUpperCase()}" alt="Avatar" class="w-12 h-12 rounded-full mr-4">
+                        <div class="flex-grow overflow-hidden">
+                            <h3 class="font-semibold text-gray-800">${otherUserName}</h3>
+                            <p class="text-sm text-gray-500 truncate">${chat.lastMessage || 'Nenhuma mensagem'}</p>
+                        </div>
+                        ${unreadBadge}
+                    `;
+                    chatEl.addEventListener('click', () => {
+                        if (activeChatId !== chat.id) {
+                            activeChatId = chat.id;
+                            openChat(chat.id, otherUserName);
+                        }
+                    });
+                    chatListEl.appendChild(chatEl);
+                });
+            });
+        }
 
         onAuthStateChanged(auth, async (user) => {
             if (unsubscribeChatList) unsubscribeChatList();
             if (unsubscribeMessages) unsubscribeMessages();
             
+            localChats = {};
+            localUserChatsMetadata = {};
             currentUser = user;
+
             if (user) {
                 await user.reload();
                 if (user.emailVerified) {
@@ -278,48 +334,34 @@
             document.getElementById('modal-username').textContent = userData.username;
             document.getElementById('modal-email').textContent = user.email;
 
+            // Listener para os chats do usuário
             const chatsQuery = query(collection(db, "chats"), where("members", "array-contains", user.uid));
             unsubscribeChatList = onSnapshot(chatsQuery, (snapshot) => {
-                const chatListEl = document.getElementById('chat-list');
-                chatListEl.innerHTML = '';
-                
-                const sortedDocs = snapshot.docs.sort((a, b) => {
-                    const timeA = a.data().lastUpdate?.seconds || 0;
-                    const timeB = b.data().lastUpdate?.seconds || 0;
-                    return timeB - timeA;
+                snapshot.docChanges().forEach((change) => {
+                    if (change.type === "removed") {
+                        delete localChats[change.doc.id];
+                    } else {
+                        localChats[change.doc.id] = change.doc.data();
+                    }
                 });
+                renderChatList();
+            });
 
-                if (sortedDocs.length === 0) {
-                    chatListEl.innerHTML = `<p class="p-4 text-center text-gray-500">Nenhum chat ainda. Comece uma nova conversa.</p>`;
-                    return;
-                }
-                
-                sortedDocs.forEach(docSnap => {
-                    const chat = docSnap.data();
-                    const otherMemberId = chat.members.find(id => id !== user.uid);
-                    getDoc(doc(db, "users", otherMemberId)).then(userDoc => {
-                        if (!userDoc.exists()) return;
-                        const otherUserName = userDoc.data().username;
-                        const chatEl = document.createElement('div');
-                        chatEl.className = `flex items-center p-4 hover:bg-gray-100 cursor-pointer border-b border-gray-200 ${docSnap.id === activeChatId ? 'bg-blue-50 border-l-4 border-blue-500' : ''}`;
-                        chatEl.innerHTML = `
-                            <img src="https://placehold.co/48x48/CBD5E0/4A5568?text=${otherUserName.charAt(0).toUpperCase()}" alt="Avatar" class="w-12 h-12 rounded-full mr-4">
-                            <div class="flex-grow overflow-hidden">
-                                <h3 class="font-semibold text-gray-800">${otherUserName}</h3>
-                                <p class="text-sm text-gray-500 truncate">${chat.lastMessage || 'Nenhuma mensagem'}</p>
-                            </div>
-                        `;
-                        chatEl.addEventListener('click', () => {
-                            activeChatId = docSnap.id;
-                            openChat(docSnap.id, otherUserName);
-                        });
-                        chatListEl.appendChild(chatEl);
-                    });
+            // Listener para os metadados dos chats do usuário (contador)
+            const userChatsQuery = collection(db, "users", user.uid, "userChats");
+            onSnapshot(userChatsQuery, (snapshot) => {
+                 snapshot.docChanges().forEach((change) => {
+                    if (change.type === "removed") {
+                        delete localUserChatsMetadata[change.doc.id];
+                    } else {
+                        localUserChatsMetadata[change.doc.id] = change.doc.data();
+                    }
                 });
+                renderChatList();
             });
         }
 
-        function openChat(chatId, otherUserName) {
+        async function openChat(chatId, otherUserName) {
             const chatWindow = document.getElementById('chat-window');
             const chatListColumn = document.getElementById('chat-list-column');
             
@@ -348,6 +390,10 @@
                 });
                 messageListEl.scrollTop = messageListEl.scrollHeight;
             });
+
+            // Resetar contador de não lidos
+            const userChatRef = doc(db, "users", currentUser.uid, "userChats", chatId);
+            await setDoc(userChatRef, { unreadCount: 0 }, { merge: true });
         }
         
         // --- Formulários e Ações ---
@@ -402,15 +448,26 @@
             const input = document.getElementById('message-input');
             const text = input.value.trim();
             if (text && activeChatId && currentUser) {
+                // Adiciona a mensagem
                 await addDoc(collection(db, "chats", activeChatId, "messages"), {
                     text: text,
                     senderId: currentUser.uid,
                     timestamp: serverTimestamp()
                 });
+                // Atualiza o chat principal
                 await updateDoc(doc(db, "chats", activeChatId), { 
                     lastMessage: text,
                     lastUpdate: serverTimestamp()
                 });
+                
+                // Incrementa o contador do outro usuário
+                const chatDoc = await getDoc(doc(db, "chats", activeChatId));
+                const recipientId = chatDoc.data().members.find(id => id !== currentUser.uid);
+                if (recipientId) {
+                    const recipientChatRef = doc(db, "users", recipientId, "userChats", activeChatId);
+                    await setDoc(recipientChatRef, { unreadCount: increment(1) }, { merge: true });
+                }
+
                 input.value = '';
             }
         });
@@ -438,15 +495,19 @@
                 
                 const chatId = [currentUser.uid, otherUserId].sort().join('_');
                 const chatDocRef = doc(db, "chats", chatId);
-                const chatDoc = await getDoc(chatDocRef);
+                const chatDocSnap = await getDoc(chatDocRef);
 
-                if (!chatDoc.exists()) {
+                if (!chatDocSnap.exists()) {
+                    // Cria o chat principal
                     await setDoc(chatDocRef, {
                         type: 'dm',
                         members: [currentUser.uid, otherUserId],
                         lastMessage: '',
                         lastUpdate: serverTimestamp()
                     });
+                    // Cria os metadados para cada usuário
+                    await setDoc(doc(db, "users", currentUser.uid, "userChats", chatId), { unreadCount: 0 });
+                    await setDoc(doc(db, "users", otherUserId, "userChats", chatId), { unreadCount: 0 });
                 }
                 
                 document.getElementById('new-chat-modal').classList.add('hidden');
@@ -486,6 +547,7 @@
             document.getElementById('chat-window').classList.remove('flex');
             document.getElementById('chat-list-column').classList.remove('mobile-hidden');
             activeChatId = null;
+            renderChatList();
         });
 
         const setupModal = (buttonId, modalId, closeButtonId) => {
