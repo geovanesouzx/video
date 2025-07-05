@@ -26,6 +26,16 @@
         .message-received { justify-content: flex-start; }
         .message-sent .message-bubble { background-color: #dcf8c6; border-bottom-right-radius: 0.125rem; }
         .message-received .message-bubble { background-color: #ffffff; border-bottom-left-radius: 0.125rem; }
+        
+        /* Estilos para a transição mobile */
+        #chat-list-column.mobile-hidden {
+            display: none;
+        }
+        @media (min-width: 768px) {
+            #chat-list-column.mobile-hidden {
+                display: flex;
+            }
+        }
     </style>
 </head>
 <body class="bg-gray-100 h-screen overflow-hidden">
@@ -91,7 +101,7 @@
     <!-- Container Principal do App (Chat) -->
     <div id="main-app-container" class="hidden h-full w-full">
         <!-- Menu Lateral -->
-        <div id="side-menu" class="fixed z-20 top-0 left-0 h-full w-72 bg-[#212731] p-4 text-white flex flex-col">
+        <div id="side-menu" class="fixed z-30 top-0 left-0 h-full w-72 bg-[#212731] p-4 text-white flex flex-col">
             <div class="flex items-center space-x-4 mb-8">
                 <img id="menu-avatar" src="https://placehold.co/48x48/E2E8F0/4A5568?text=P" alt="Avatar" class="w-12 h-12 rounded-full">
                 <div>
@@ -120,10 +130,11 @@
                 </button>
             </div>
         </div>
-        <div id="menu-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-10 hidden"></div>
+        <div id="menu-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-20 hidden"></div>
         
-        <div class="flex h-full w-full">
-            <div class="w-full md:w-1/3 lg:w-1/4 bg-white border-r border-gray-200 flex flex-col">
+        <div class="relative h-full w-full flex">
+            <!-- Coluna da Lista de Chats -->
+            <div id="chat-list-column" class="w-full md:w-1/3 lg:w-1/4 bg-white border-r border-gray-200 flex flex-col h-full absolute md:static inset-0 z-10">
                 <header class="p-2.5 border-b border-gray-200 flex-shrink-0 flex items-center space-x-2">
                     <button id="hamburger-menu-button" class="p-2 rounded-lg hover:bg-gray-200">
                         <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
@@ -140,8 +151,15 @@
                 </header>
                 <div id="chat-list" class="flex-grow overflow-y-auto"></div>
             </div>
-            <main id="chat-window" class="hidden md:flex flex-1 flex-col bg-gray-200" style="background-image: url('https://i.pinimg.com/736x/8c/98/99/8c98994518b575bfd8c949e91d20548b.jpg'); background-size: contain;">
-                <header id="chat-header" class="bg-white p-4 border-b border-gray-200 flex justify-between items-center flex-shrink-0"></header>
+            <!-- Coluna da Janela de Chat -->
+            <main id="chat-window" class="w-full flex-1 flex-col h-full absolute md:static inset-0 z-0 hidden md:flex" style="background-image: url('https://i.pinimg.com/736x/8c/98/99/8c98994518b575bfd8c949e91d20548b.jpg'); background-size: contain;">
+                <header id="chat-header" class="bg-white p-4 border-b border-gray-200 flex justify-between items-center flex-shrink-0">
+                    <!-- Botão de Voltar para Mobile -->
+                    <button id="back-to-chat-list-button" class="p-2 rounded-lg hover:bg-gray-200 md:hidden mr-2">
+                        <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                    </button>
+                    <div id="chat-header-info" class="flex-grow"></div>
+                </header>
                 <div id="message-list" class="flex-1 p-6 overflow-y-auto"></div>
                 <footer class="bg-white p-4 border-t border-gray-200 flex-shrink-0">
                     <form id="message-form" class="flex items-center space-x-4">
@@ -152,17 +170,11 @@
                     </form>
                 </footer>
             </main>
-            <div id="no-chat-selected" class="hidden md:flex flex-1 flex-col items-center justify-center bg-gray-200 p-8 text-center" style="background-image: url('https://i.pinimg.com/736x/8c/98/99/8c98994518b575bfd8c949e91d20548b.jpg'); background-size: contain;">
-                <div class="bg-white/50 backdrop-blur-sm p-8 rounded-lg">
-                    <h2 class="text-2xl font-semibold text-gray-700">Selecione um chat para começar</h2>
-                    <p class="text-gray-500 mt-2">Use o menu à esquerda para encontrar seus amigos ou criar novos grupos.</p>
-                </div>
-            </div>
         </div>
     </div>
     
     <!-- Modals -->
-    <div id="profile-modal" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden items-center justify-center">
+    <div id="profile-modal" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden items-center justify-center">
         <div class="bg-white rounded-lg shadow-xl p-8 w-full max-w-sm text-center">
             <h3 class="text-2xl font-bold mb-4">Meu Perfil</h3>
             <img id="modal-avatar" src="https://placehold.co/96x96/E2E8F0/4A5568?text=P" alt="Avatar" class="w-24 h-24 rounded-full mx-auto mb-4">
@@ -171,7 +183,7 @@
             <button id="close-profile-modal" class="w-full px-4 py-2 font-semibold text-white bg-blue-500 rounded-lg hover:bg-blue-600">Fechar</button>
         </div>
     </div>
-    <div id="new-chat-modal" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden items-center justify-center">
+    <div id="new-chat-modal" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden items-center justify-center">
         <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm">
             <h3 class="text-xl font-bold mb-4">Iniciar Nova Conversa</h3>
             <p class="text-sm text-gray-600 mb-4">Digite o nome de usuário exato para encontrar um usuário.</p>
@@ -185,14 +197,14 @@
             </form>
         </div>
     </div>
-    <div id="new-group-modal" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden items-center justify-center">
+    <div id="new-group-modal" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden items-center justify-center">
          <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm text-center">
             <h3 class="text-xl font-bold mb-4">Criar Novo Grupo</h3>
             <p class="text-gray-600 mb-6">A funcionalidade de criação de grupos estará disponível em breve!</p>
             <button id="close-new-group-modal" class="w-full px-4 py-2 font-semibold text-white bg-blue-500 rounded-lg hover:bg-blue-600">Entendido</button>
         </div>
     </div>
-     <div id="new-channel-modal" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden items-center justify-center">
+     <div id="new-channel-modal" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden items-center justify-center">
          <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm text-center">
             <h3 class="text-xl font-bold mb-4">Criar Novo Canal</h3>
             <p class="text-gray-600 mb-6">A funcionalidade de criação de canais estará disponível em breve!</p>
@@ -257,8 +269,6 @@
                 }
             } else {
                 showContainer('auth');
-                document.getElementById('chat-window').classList.add('hidden');
-                document.getElementById('no-chat-selected').classList.remove('hidden');
             }
         });
         
@@ -267,19 +277,16 @@
             document.getElementById('menu-email').textContent = user.email;
             document.getElementById('modal-username').textContent = userData.username;
             document.getElementById('modal-email').textContent = user.email;
-            document.getElementById('no-chat-selected').classList.remove('hidden');
 
-            // CORREÇÃO: Removido o orderBy para evitar a necessidade de um índice composto.
             const chatsQuery = query(collection(db, "chats"), where("members", "array-contains", user.uid));
             unsubscribeChatList = onSnapshot(chatsQuery, (snapshot) => {
                 const chatListEl = document.getElementById('chat-list');
                 chatListEl.innerHTML = '';
                 
-                // CORREÇÃO: Ordenar os documentos no lado do cliente.
                 const sortedDocs = snapshot.docs.sort((a, b) => {
                     const timeA = a.data().lastUpdate?.seconds || 0;
                     const timeB = b.data().lastUpdate?.seconds || 0;
-                    return timeB - timeA; // Ordenar do mais recente para o mais antigo.
+                    return timeB - timeA;
                 });
 
                 if (sortedDocs.length === 0) {
@@ -305,8 +312,6 @@
                         chatEl.addEventListener('click', () => {
                             activeChatId = docSnap.id;
                             openChat(docSnap.id, otherUserName);
-                            document.querySelectorAll('#chat-list > div').forEach(el => el.classList.remove('bg-blue-50', 'border-l-4', 'border-blue-500'));
-                            chatEl.classList.add('bg-blue-50', 'border-l-4', 'border-blue-500');
                         });
                         chatListEl.appendChild(chatEl);
                     });
@@ -315,10 +320,14 @@
         }
 
         function openChat(chatId, otherUserName) {
-            document.getElementById('chat-window').classList.remove('hidden');
-            document.getElementById('no-chat-selected').classList.add('hidden');
+            const chatWindow = document.getElementById('chat-window');
+            const chatListColumn = document.getElementById('chat-list-column');
             
-            document.getElementById('chat-header').innerHTML = `<div><h2 class="text-lg font-semibold">${otherUserName}</h2><p class="text-sm text-green-500">online</p></div>`;
+            chatWindow.classList.remove('hidden');
+            chatWindow.classList.add('flex');
+            chatListColumn.classList.add('mobile-hidden');
+
+            document.getElementById('chat-header-info').innerHTML = `<div><h2 class="text-lg font-semibold">${otherUserName}</h2><p class="text-sm text-green-500">online</p></div>`;
 
             if (unsubscribeMessages) unsubscribeMessages();
 
@@ -440,10 +449,9 @@
                     });
                 }
                 
-                activeChatId = chatId;
-                openChat(chatId, otherUserDoc.data().username);
                 document.getElementById('new-chat-modal').classList.add('hidden');
                 usernameInput.value = '';
+                openChat(chatId, otherUserDoc.data().username);
             }
         });
 
@@ -471,6 +479,13 @@
         document.getElementById('menu-overlay').addEventListener('click', () => {
             document.getElementById('side-menu').classList.remove('open');
             document.getElementById('menu-overlay').classList.add('hidden');
+        });
+
+        document.getElementById('back-to-chat-list-button').addEventListener('click', () => {
+            document.getElementById('chat-window').classList.add('hidden');
+            document.getElementById('chat-window').classList.remove('flex');
+            document.getElementById('chat-list-column').classList.remove('mobile-hidden');
+            activeChatId = null;
         });
 
         const setupModal = (buttonId, modalId, closeButtonId) => {
