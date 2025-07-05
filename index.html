@@ -148,7 +148,7 @@
                         <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
                     </button>
                     <div class="relative flex-grow">
-                        <input type="text" placeholder="Procurar" class="w-full bg-gray-100 rounded-lg py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <input id="search-chat-input" type="text" placeholder="Procurar" class="w-full bg-gray-100 rounded-lg py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                         </div>
@@ -234,6 +234,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
         import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, collection, query, where, getDocs, addDoc, onSnapshot, serverTimestamp, orderBy, updateDoc, increment, deleteDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+        import { getDatabase, ref, onValue, set, onDisconnect } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyB98-bStjweF82UALPiw2YiwKKn1IhZASE",
@@ -241,12 +242,14 @@
             projectId: "videochamada11",
             storageBucket: "videochamada11.appspot.com",
             messagingSenderId: "872635256324",
-            appId: "1:872635256324:web:12a6051efe8796730f2f51"
+            appId: "1:872635256324:web:12a6051efe8796730f2f51",
+            databaseURL: "https://videochamada11-default-rtdb.firebaseio.com"
         };
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
+        const rtdb = getDatabase(app);
 
         const containers = {
             loading: document.getElementById('loading-container'),
@@ -267,62 +270,58 @@
         let unsubscribeChatList = null;
         let unsubscribeUserChats = null;
         let unsubscribeMessages = null;
+        let unsubscribeTypingStatus = null;
+        let unsubscribePresence = null;
         let localChats = {};
+        let typingTimeout = null;
 
-        function renderChatList() {
+        function renderChatList(filter = '') {
             const chatListEl = document.getElementById('chat-list');
             chatListEl.innerHTML = '';
 
             const sortedChats = Object.values(localChats).sort((a, b) => (b.lastUpdate?.seconds || 0) - (a.lastUpdate?.seconds || 0));
+            
+            const filteredChats = sortedChats.filter(chat => chat.otherUserName?.toLowerCase().includes(filter.toLowerCase()));
 
-            if (sortedChats.length === 0) {
-                chatListEl.innerHTML = `<p class="p-4 text-center text-gray-500">Nenhum chat ainda. Comece uma nova conversa.</p>`;
+            if (filteredChats.length === 0) {
+                chatListEl.innerHTML = `<p class="p-4 text-center text-gray-500">Nenhum chat encontrado.</p>`;
                 return;
             }
 
-            sortedChats.forEach(chat => {
-                const otherMemberId = chat.members.find(id => id !== currentUser.uid);
-                if (!otherMemberId) return;
+            filteredChats.forEach(chat => {
+                const unreadBadge = chat.unreadCount > 0 
+                    ? `<span class="bg-blue-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center ml-auto">${chat.unreadCount}</span>`
+                    : '';
 
-                getDoc(doc(db, "users", otherMemberId)).then(userDoc => {
-                    if (!userDoc.exists()) return;
-                    const otherUserName = userDoc.data().username;
-                    const chatEl = document.createElement('div');
-                    chatEl.className = `flex items-center p-4 hover:bg-gray-100 cursor-pointer border-b border-gray-200 relative group`;
-                    
-                    const unreadBadge = chat.unreadCount > 0 
-                        ? `<span class="bg-blue-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center ml-auto">${chat.unreadCount}</span>`
-                        : '';
-
-                    chatEl.innerHTML = `
-                        <img src="https://placehold.co/48x48/CBD5E0/4A5568?text=${otherUserName.charAt(0).toUpperCase()}" alt="Avatar" class="w-12 h-12 rounded-full mr-4">
-                        <div class="flex-grow overflow-hidden">
-                            <h3 class="font-semibold text-gray-800">${otherUserName}</h3>
-                            <p class="text-sm text-gray-500 truncate">${chat.lastMessage || 'Nenhuma mensagem'}</p>
-                        </div>
-                        ${unreadBadge}
-                        <div class="absolute top-2 right-2 hidden group-hover:block">
-                            <button class="chat-options-btn p-1 rounded-full hover:bg-gray-300" data-chat-id="${chat.id}">
-                                <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg>
-                            </button>
-                        </div>
-                    `;
-                    
-                    const mainContent = chatEl.querySelector('.flex-grow');
-                    mainContent.addEventListener('click', () => {
-                        if (activeChatId !== chat.id) {
-                            activeChatId = chat.id;
-                            openChat(chat.id, otherUserName);
-                        }
-                    });
-
-                    chatEl.querySelector('.chat-options-btn').addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        showDeleteConfirmation(chat.id);
-                    });
-
-                    chatListEl.appendChild(chatEl);
+                const chatEl = document.createElement('div');
+                chatEl.className = `flex items-center p-4 hover:bg-gray-100 cursor-pointer border-b border-gray-200 relative group`;
+                chatEl.innerHTML = `
+                    <img src="https://placehold.co/48x48/CBD5E0/4A5568?text=${chat.otherUserName.charAt(0).toUpperCase()}" alt="Avatar" class="w-12 h-12 rounded-full mr-4">
+                    <div class="flex-grow overflow-hidden">
+                        <h3 class="font-semibold text-gray-800">${chat.otherUserName}</h3>
+                        <p class="text-sm text-gray-500 truncate">${chat.lastMessage || 'Nenhuma mensagem'}</p>
+                    </div>
+                    ${unreadBadge}
+                    <div class="absolute top-2 right-2 hidden group-hover:block">
+                        <button class="chat-options-btn p-1 rounded-full hover:bg-gray-300" data-chat-id="${chat.id}">
+                            <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg>
+                        </button>
+                    </div>
+                `;
+                
+                const mainContent = chatEl.querySelector('.flex-grow');
+                mainContent.addEventListener('click', () => {
+                    if (activeChatId !== chat.id) {
+                        openChat(chat.id, chat.otherUserName);
+                    }
                 });
+
+                chatEl.querySelector('.chat-options-btn').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    showDeleteConfirmation(chat.id);
+                });
+
+                chatListEl.appendChild(chatEl);
             });
         }
 
@@ -330,11 +329,24 @@
             if (unsubscribeChatList) unsubscribeChatList();
             if (unsubscribeUserChats) unsubscribeUserChats();
             if (unsubscribeMessages) unsubscribeMessages();
+            if (unsubscribeTypingStatus) unsubscribeTypingStatus();
+            if (unsubscribePresence) unsubscribePresence();
             
             localChats = {};
             currentUser = user;
 
             if (user) {
+                const userStatusRef = ref(rtdb, '/status/' + user.uid);
+                const isOfflineForDatabase = { state: 'offline', last_changed: serverTimestamp() };
+                const isOnlineForDatabase = { state: 'online', last_changed: serverTimestamp() };
+                
+                onValue(ref(rtdb, '.info/connected'), (snapshot) => {
+                    if (snapshot.val() === false) return;
+                    onDisconnect(userStatusRef).set(isOfflineForDatabase).then(() => {
+                        set(userStatusRef, isOnlineForDatabase);
+                    });
+                });
+
                 await user.reload();
                 if (user.emailVerified) {
                     const userDoc = await getDoc(doc(db, "users", user.uid));
@@ -362,13 +374,23 @@
             const chatsQuery = query(collection(db, "chats"), where("members", "array-contains", user.uid));
             unsubscribeChatList = onSnapshot(chatsQuery, (snapshot) => {
                 snapshot.docChanges().forEach((change) => {
+                    const docData = change.doc.data();
+                    const docId = change.doc.id;
                     if (change.type === "removed") {
-                        delete localChats[change.doc.id];
+                        delete localChats[docId];
                     } else {
-                        localChats[change.doc.id] = { ...localChats[change.doc.id], ...change.doc.data(), id: change.doc.id };
+                        const otherMemberId = docData.members.find(id => id !== currentUser.uid);
+                        if (otherMemberId) {
+                            getDoc(doc(db, "users", otherMemberId)).then(userDoc => {
+                                if(userDoc.exists()){
+                                    localChats[docId] = { ...localChats[docId], ...docData, id: docId, otherUserName: userDoc.data().username };
+                                    renderChatList(document.getElementById('search-chat-input').value);
+                                }
+                            });
+                        }
                     }
                 });
-                renderChatList();
+                renderChatList(document.getElementById('search-chat-input').value);
             });
 
             const userChatsQuery = collection(db, "users", user.uid, "userChats");
@@ -382,11 +404,12 @@
                         }
                     }
                 });
-                renderChatList();
+                renderChatList(document.getElementById('search-chat-input').value);
             });
         }
 
         async function openChat(chatId, otherUserName) {
+            activeChatId = chatId;
             const chatWindow = document.getElementById('chat-window');
             const chatListColumn = document.getElementById('chat-list-column');
             
@@ -394,7 +417,31 @@
             chatWindow.classList.add('flex');
             chatListColumn.classList.add('mobile-hidden');
 
-            document.getElementById('chat-header-info').innerHTML = `<div><h2 class="text-lg font-semibold">${otherUserName}</h2><p class="text-sm text-green-500">online</p></div>`;
+            const chatHeaderInfo = document.getElementById('chat-header-info');
+            const otherUserId = localChats[chatId].members.find(id => id !== currentUser.uid);
+
+            if (unsubscribePresence) unsubscribePresence();
+            unsubscribePresence = onValue(ref(rtdb, '/status/' + otherUserId), (snapshot) => {
+                const presence = snapshot.val();
+                let statusHtml = `<p class="text-sm text-gray-500">offline</p>`;
+                if (presence?.state === 'online') {
+                    statusHtml = `<p class="text-sm text-green-500">online</p>`;
+                } else if (presence?.last_changed) {
+                    const lastSeen = new Date(presence.last_changed).toLocaleString();
+                    statusHtml = `<p class="text-sm text-gray-500">visto por último ${lastSeen}</p>`;
+                }
+                chatHeaderInfo.innerHTML = `<div><h2 class="text-lg font-semibold">${otherUserName}</h2><div id="status-container">${statusHtml}</div></div>`;
+            });
+
+            if (unsubscribeTypingStatus) unsubscribeTypingStatus();
+            unsubscribeTypingStatus = onSnapshot(doc(db, "chats", chatId), (doc) => {
+                const typingUsers = doc.data()?.typing || {};
+                const otherUserIsTyping = typingUsers[otherUserId];
+                const statusContainer = document.getElementById('status-container');
+                if (otherUserIsTyping) {
+                    statusContainer.innerHTML = `<p class="text-sm text-blue-500 italic">a escrever...</p>`;
+                }
+            });
 
             if (unsubscribeMessages) unsubscribeMessages();
 
@@ -423,6 +470,7 @@
         function showDeleteConfirmation(chatId) {
             const modal = document.getElementById('delete-chat-modal');
             modal.classList.remove('hidden');
+            modal.classList.add('flex');
             modal.dataset.chatId = chatId;
         }
 
@@ -433,13 +481,9 @@
                 const chatSnap = await getDoc(chatRef);
                 if (chatSnap.exists()) {
                     const members = chatSnap.data().members;
-                    // Delete metadata for both users
                     for (const userId of members) {
                         await deleteDoc(doc(db, "users", userId, "userChats", chatId));
                     }
-                    // Delete the chat itself
-                    // Note: Subcollections like 'messages' are not deleted automatically.
-                    // For a full implementation, one would need a cloud function to delete subcollections.
                     await deleteDoc(chatRef);
                 }
                 if (activeChatId === chatId) {
@@ -448,6 +492,14 @@
             } catch (error) {
                 console.error("Error deleting chat:", error);
             }
+        }
+
+        async function updateTypingStatus(isTyping) {
+            if (!activeChatId || !currentUser) return;
+            const chatRef = doc(db, "chats", activeChatId);
+            const typingUpdate = {};
+            typingUpdate[`typing.${currentUser.uid}`] = isTyping;
+            await updateDoc(chatRef, typingUpdate);
         }
 
         // --- Formulários e Ações ---
@@ -502,6 +554,9 @@
             const input = document.getElementById('message-input');
             const text = input.value.trim();
             if (text && activeChatId && currentUser) {
+                input.value = '';
+                await updateTypingStatus(false);
+
                 await addDoc(collection(db, "chats", activeChatId, "messages"), {
                     text: text,
                     senderId: currentUser.uid,
@@ -518,7 +573,6 @@
                     const recipientChatRef = doc(db, "users", recipientId, "userChats", activeChatId);
                     await setDoc(recipientChatRef, { unreadCount: increment(1) }, { merge: true });
                 }
-                input.value = '';
             }
         });
 
@@ -552,7 +606,8 @@
                         type: 'dm',
                         members: [currentUser.uid, otherUserId],
                         lastMessage: '',
-                        lastUpdate: serverTimestamp()
+                        lastUpdate: serverTimestamp(),
+                        typing: {}
                     });
                     await setDoc(doc(db, "users", currentUser.uid, "userChats", chatId), { unreadCount: 0 });
                     await setDoc(doc(db, "users", otherUserId, "userChats", chatId), { unreadCount: 0 });
@@ -577,12 +632,15 @@
         });
         document.getElementById('back-to-login-btn').addEventListener('click', () => {
             showContainer('auth');
-            // Garante que a view de login é a padrão ao voltar
             document.getElementById('signup-view').classList.add('hidden');
             document.getElementById('login-view').classList.remove('hidden');
         });
         
-        const handleLogout = () => signOut(auth).catch(console.error);
+        const handleLogout = () => {
+            const userStatusRef = ref(rtdb, '/status/' + currentUser.uid);
+            set(userStatusRef, { state: 'offline', last_changed: serverTimestamp() });
+            signOut(auth).catch(console.error);
+        }
         document.getElementById('logout-button').addEventListener('click', handleLogout);
         document.getElementById('logout-verification').addEventListener('click', handleLogout);
 
@@ -600,6 +658,18 @@
             document.getElementById('chat-window').classList.remove('flex');
             document.getElementById('chat-list-column').classList.remove('mobile-hidden');
             activeChatId = null;
+        });
+
+        document.getElementById('search-chat-input').addEventListener('input', (e) => {
+            renderChatList(e.target.value);
+        });
+
+        document.getElementById('message-input').addEventListener('input', () => {
+            clearTimeout(typingTimeout);
+            updateTypingStatus(true);
+            typingTimeout = setTimeout(() => {
+                updateTypingStatus(false);
+            }, 2000);
         });
 
         const setupModal = (buttonId, modalId, closeButtonId) => {
