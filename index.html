@@ -113,16 +113,17 @@
         import { getFirestore, collection, addDoc, doc, setDoc, getDoc, onSnapshot, serverTimestamp, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- Configuração do Firebase ("A Chave") ---
-        // Se estiver usando fora do ambiente do Canvas, substitua pelos seus próprios valores.
+        // A variável __firebase_config é fornecida pelo ambiente do Canvas.
+        // Caso contrário, usa a chave que você forneceu.
         const firebaseConfig = typeof __firebase_config !== 'undefined'
             ? JSON.parse(__firebase_config)
             : {
-                apiKey: "SUA_API_KEY",
-                authDomain: "SEU_AUTH_DOMAIN",
-                projectId: "SEU_PROJECT_ID",
-                storageBucket: "SEU_STORAGE_BUCKET",
-                messagingSenderId: "SEU_MESSAGING_SENDER_ID",
-                appId: "SEU_APP_ID"
+                apiKey: "AIzaSyB98-bStjweF82UALPiw2YiwKKn1IhZASE",
+                authDomain: "videochamada11.firebaseapp.com",
+                projectId: "videochamada11",
+                storageBucket: "videochamada11.appspot.com", // Corrigido para .appspot.com
+                messagingSenderId: "872635256324",
+                appId: "1:872635256324:web:12a6051efe8796730f2f51"
             };
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-whatsapp-clone-html';
@@ -340,7 +341,7 @@
         function listenForUsers() {
             unsubscribeUsers(); // Cancela listener anterior
             const usersCollectionRef = collection(db, `artifacts/${appId}/public/data/users`);
-            const q = query(usersCollectionRef, where("id", "!=", currentUser.uid));
+            const q = query(usersCollectioneRef, where("id", "!=", currentUser.uid));
             
             unsubscribeUsers = onSnapshot(q, (snapshot) => {
                 const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
