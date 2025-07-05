@@ -39,21 +39,43 @@
                 <p class="text-gray-600">Faça login ou crie sua conta</p>
             </div>
             <div id="auth-error" class="p-3 text-sm text-red-700 bg-red-100 rounded-lg hidden"></div>
-            <form id="login-form" class="space-y-6">
-                <input id="login-email" type="email" placeholder="Email" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-                <input id="login-password" type="password" placeholder="Senha" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-                <button type="submit" class="w-full px-4 py-2 font-semibold text-white bg-blue-500 rounded-lg hover:bg-blue-600">Entrar</button>
-            </form>
-            <div class="text-center">
-                <p class="text-sm text-gray-600">Não tem uma conta?
-                    <a href="#" id="show-signup" class="font-medium text-blue-600 hover:underline">Cadastre-se</a>
-                </p>
+            
+            <!-- Visualização de Login -->
+            <div id="login-view">
+                <form id="login-form" class="space-y-6">
+                    <input id="login-email" type="email" placeholder="Email" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                    <input id="login-password" type="password" placeholder="Senha" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                    <button type="submit" class="w-full px-4 py-2 font-semibold text-white bg-blue-500 rounded-lg hover:bg-blue-600">Entrar</button>
+                </form>
+                <div class="text-center mt-6">
+                    <p class="text-sm text-gray-600">Não tem uma conta?
+                        <a href="#" id="show-signup-link" class="font-medium text-blue-600 hover:underline">Cadastre-se</a>
+                    </p>
+                </div>
             </div>
-            <form id="signup-form" class="space-y-6 hidden">
-                <input id="signup-email" type="email" placeholder="Email" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-                <input id="signup-password" type="password" placeholder="Senha (mínimo 6 caracteres)" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-                <button type="submit" class="w-full px-4 py-2 font-semibold text-white bg-green-500 rounded-lg hover:bg-green-600">Criar Conta</button>
-            </form>
+
+            <!-- Visualização de Cadastro -->
+            <div id="signup-view" class="hidden">
+                <form id="signup-form" class="space-y-6">
+                    <input id="signup-email" type="email" placeholder="Email" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                    <input id="signup-password" type="password" placeholder="Senha (mínimo 6 caracteres)" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                    <button type="submit" class="w-full px-4 py-2 font-semibold text-white bg-green-500 rounded-lg hover:bg-green-600">Criar Conta</button>
+                </form>
+                <div class="text-center mt-6">
+                    <p class="text-sm text-gray-600">Já tem uma conta?
+                        <a href="#" id="show-login-link" class="font-medium text-blue-600 hover:underline">Entrar</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Container de Mensagem Pós-Cadastro -->
+    <div id="signup-success-container" class="hidden flex items-center justify-center h-full bg-gray-200">
+        <div class="w-full max-w-md p-8 space-y-4 text-center bg-white rounded-lg shadow-md">
+            <h2 class="text-2xl font-bold text-green-600">Conta Criada com Sucesso!</h2>
+            <p class="text-gray-600">Enviamos um link de verificação para o seu e-mail. Por favor, clique no link para ativar sua conta e depois faça o login.</p>
+            <button id="back-to-login-btn" class="px-4 py-2 font-semibold text-white bg-blue-500 rounded-lg hover:bg-blue-600">Voltar para o Login</button>
         </div>
     </div>
 
@@ -61,7 +83,7 @@
     <div id="email-verification-container" class="hidden flex items-center justify-center h-full bg-gray-200">
         <div class="w-full max-w-md p-8 space-y-4 text-center bg-white rounded-lg shadow-md">
             <h2 class="text-2xl font-bold text-gray-800">Verifique seu E-mail</h2>
-            <p class="text-gray-600">Enviamos um link de verificação para o seu e-mail. Por favor, clique no link para continuar. Depois, atualize esta página.</p>
+            <p class="text-gray-600">Enviamos um link de verificação para o seu e-mail. Por favor, clique no link para continuar. Depois, atualize esta página ou faça login novamente.</p>
             <button id="logout-verification" class="px-4 py-2 font-semibold text-white bg-red-500 rounded-lg hover:bg-red-600">Sair</button>
         </div>
     </div>
@@ -70,6 +92,7 @@
     <div id="username-container" class="hidden flex items-center justify-center h-full bg-gray-200">
         <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
             <h2 class="text-2xl font-bold text-center text-gray-800">Escolha seu nome de usuário</h2>
+            <p class="text-center text-gray-500 text-sm">Este nome será único e visível para outros usuários.</p>
             <div id="username-error" class="p-3 text-sm text-red-700 bg-red-100 rounded-lg hidden"></div>
             <form id="username-form" class="space-y-4">
                 <input id="username-input" type="text" placeholder="Nome de usuário (único)" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
@@ -167,7 +190,6 @@
 
     <!-- Firebase SDKs -->
     <script type="module">
-        // Import the functions you need from the SDKs you need
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
         import { 
             getAuth, 
@@ -181,10 +203,13 @@
             getFirestore,
             doc,
             getDoc,
-            setDoc
+            setDoc,
+            collection,
+            query,
+            where,
+            getDocs
         } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
-        // Your web app's Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyB98-bStjweF82UALPiw2YiwKKn1IhZASE",
             authDomain: "videochamada11.firebaseapp.com",
@@ -194,100 +219,82 @@
             appId: "1:872635256324:web:12a6051efe8796730f2f51"
         };
 
-        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // Elementos da UI
         const authContainer = document.getElementById('auth-container');
         const verificationContainer = document.getElementById('email-verification-container');
         const usernameContainer = document.getElementById('username-container');
         const mainAppContainer = document.getElementById('main-app-container');
-        const allContainers = [authContainer, verificationContainer, usernameContainer, mainAppContainer];
+        const signupSuccessContainer = document.getElementById('signup-success-container');
+        const allContainers = [authContainer, verificationContainer, usernameContainer, mainAppContainer, signupSuccessContainer];
 
-        const loginForm = document.getElementById('login-form');
+        const loginView = document.getElementById('login-view');
+        const signupView = document.getElementById('signup-view');
         const signupForm = document.getElementById('signup-form');
+        const loginForm = document.getElementById('login-form');
         const usernameForm = document.getElementById('username-form');
         
         const authError = document.getElementById('auth-error');
         const usernameError = document.getElementById('username-error');
         
-        const logoutButton = document.getElementById('logout-button');
-        const logoutVerificationBtn = document.getElementById('logout-verification');
-        
-        const hamburgerBtn = document.getElementById('hamburger-menu-button');
-        const sideMenu = document.getElementById('side-menu');
-        const menuOverlay = document.getElementById('menu-overlay');
-
-        const profileButton = document.getElementById('profile-button');
-        const profileModal = document.getElementById('profile-modal');
-        const closeProfileModal = document.getElementById('close-profile-modal');
-
-        // Função para mostrar um container e esconder os outros
         const showContainer = (containerToShow) => {
             allContainers.forEach(container => container.classList.add('hidden'));
             containerToShow.classList.remove('hidden');
         };
         
-        // Função para mostrar erros
         const showError = (element, message) => {
             element.textContent = message;
             element.classList.remove('hidden');
         };
 
-        // Lógica de troca entre Login e Cadastro
-        document.getElementById('show-signup').addEventListener('click', (e) => {
-            e.preventDefault();
-            loginForm.classList.add('hidden');
-            signupForm.classList.remove('hidden');
-        });
-
-        // Gerenciador de estado de autenticação
         onAuthStateChanged(auth, async (user) => {
             if (user) {
+                await user.reload(); // Garante que temos o status mais recente (ex: emailVerified)
                 if (user.emailVerified) {
-                    // Usuário logado e verificado
                     const userDocRef = doc(db, "users", user.uid);
                     const userDocSnap = await getDoc(userDocRef);
-
                     if (userDocSnap.exists() && userDocSnap.data().username) {
-                        // Usuário tem um nome de usuário, mostrar app principal
                         showContainer(mainAppContainer);
-                        // Preencher dados do perfil
                         const userData = userDocSnap.data();
                         document.getElementById('menu-username').textContent = userData.username;
                         document.getElementById('menu-email').textContent = userData.email;
                         document.getElementById('modal-username').textContent = userData.username;
                         document.getElementById('modal-email').textContent = userData.email;
                     } else {
-                        // Usuário precisa definir um nome de usuário
                         showContainer(usernameContainer);
                     }
                 } else {
-                    // Usuário logado mas não verificado
                     showContainer(verificationContainer);
                 }
             } else {
-                // Nenhum usuário logado
                 showContainer(authContainer);
             }
         });
 
-        // Cadastro
+        document.getElementById('show-signup-link').addEventListener('click', (e) => {
+            e.preventDefault();
+            loginView.classList.add('hidden');
+            signupView.classList.remove('hidden');
+        });
+
+        document.getElementById('show-login-link').addEventListener('click', (e) => {
+            e.preventDefault();
+            signupView.classList.add('hidden');
+            loginView.classList.remove('hidden');
+        });
+
         signupForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const email = document.getElementById('signup-email').value;
             const password = document.getElementById('signup-password').value;
-            
             authError.classList.add('hidden');
-
             createUserWithEmailAndPassword(auth, email, password)
                 .then((userCredential) => {
                     sendEmailVerification(userCredential.user)
                         .then(() => {
-                           alert("Link de verificação enviado! Por favor, cheque seu e-mail.");
-                           signOut(auth); // Desloga para forçar o login após verificação
+                           showContainer(signupSuccessContainer);
                         });
                 })
                 .catch((error) => {
@@ -295,79 +302,76 @@
                 });
         });
 
-        // Login
         loginForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const email = document.getElementById('login-email').value;
             const password = document.getElementById('login-password').value;
-            
             authError.classList.add('hidden');
-
             signInWithEmailAndPassword(auth, email, password)
                 .catch((error) => {
                     showError(authError, `Erro no login: ${error.message}`);
                 });
         });
 
-        // Definir Nome de Usuário
         usernameForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const username = document.getElementById('username-input').value.trim().toLowerCase();
             const user = auth.currentUser;
-
             if (!user) return;
             if (username.length < 3) {
                  showError(usernameError, "O nome de usuário deve ter pelo menos 3 caracteres.");
                  return;
             }
-            
             usernameError.classList.add('hidden');
 
-            // Verificar se o nome de usuário já existe
-            const usernameDocRef = doc(db, "usernames", username);
-            const usernameDocSnap = await getDoc(usernameDocRef);
-
-            if (usernameDocSnap.exists()) {
+            const q = query(collection(db, "users"), where("username", "==", username));
+            const querySnapshot = await getDocs(q);
+            
+            if (!querySnapshot.empty) {
                 showError(usernameError, "Este nome de usuário já está em uso. Tente outro.");
             } else {
-                // Salvar o nome de usuário
                 const userDocRef = doc(db, "users", user.uid);
-                await setDoc(userDocRef, { username: username, email: user.email });
-                await setDoc(usernameDocRef, { uid: user.uid });
-                // Força a re-verificação do estado de autenticação para ir para o app
-                onAuthStateChanged(auth, auth.currentUser);
-                window.location.reload(); // Recarrega a página para garantir a transição
+                const userData = { username: username, email: user.email };
+                await setDoc(userDocRef, userData);
+                
+                showContainer(mainAppContainer);
+                document.getElementById('menu-username').textContent = userData.username;
+                document.getElementById('menu-email').textContent = userData.email;
+                document.getElementById('modal-username').textContent = userData.username;
+                document.getElementById('modal-email').textContent = userData.email;
             }
         });
 
-        // Logout
         const handleLogout = () => {
             signOut(auth).catch((error) => console.error("Erro ao sair:", error));
         };
-        logoutButton.addEventListener('click', handleLogout);
-        logoutVerificationBtn.addEventListener('click', handleLogout);
-
-        // Lógica do Menu Lateral
-        hamburgerBtn.addEventListener('click', () => {
-            sideMenu.classList.add('open');
-            menuOverlay.classList.remove('hidden');
+        document.getElementById('logout-button').addEventListener('click', handleLogout);
+        document.getElementById('logout-verification').addEventListener('click', handleLogout);
+        document.getElementById('back-to-login-btn').addEventListener('click', () => {
+            signOut(auth);
+            showContainer(authContainer);
+            signupView.classList.add('hidden');
+            loginView.classList.remove('hidden');
         });
 
-        menuOverlay.addEventListener('click', () => {
-            sideMenu.classList.remove('open');
-            menuOverlay.classList.add('hidden');
+        document.getElementById('hamburger-menu-button').addEventListener('click', () => {
+            document.getElementById('side-menu').classList.add('open');
+            document.getElementById('menu-overlay').classList.remove('hidden');
         });
 
-        // Lógica do Modal de Perfil
-        profileButton.addEventListener('click', () => {
-            profileModal.classList.remove('hidden');
-            profileModal.classList.add('flex');
-        });
-        closeProfileModal.addEventListener('click', () => {
-             profileModal.classList.add('hidden');
-             profileModal.classList.remove('flex');
+        document.getElementById('menu-overlay').addEventListener('click', () => {
+            document.getElementById('side-menu').classList.remove('open');
+            document.getElementById('menu-overlay').classList.add('hidden');
         });
 
+        document.getElementById('profile-button').addEventListener('click', () => {
+            document.getElementById('profile-modal').classList.remove('hidden');
+            document.getElementById('profile-modal').classList.add('flex');
+        });
+        document.getElementById('close-profile-modal').addEventListener('click', () => {
+             document.getElementById('profile-modal').classList.add('hidden');
+             document.getElementById('profile-modal').classList.remove('flex');
+        });
     </script>
 </body>
 </html>
