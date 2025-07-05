@@ -44,36 +44,25 @@
     </script>
     <style>
         body { font-family: 'Inter', sans-serif; }
-        .hidden { display: none !important; } /* Usando !important para garantir a sobreposição */
+        .hidden { display: none !important; }
         
-        /* Animação para o menu lateral */
         #side-menu {
             transition: transform 0.3s ease-in-out;
             transform: translateX(-100%);
         }
         #side-menu.open { transform: translateX(0); }
         
-        /* Controle de visibilidade da lista de chats em mobile */
-        #chat-list-column.mobile-hidden { display: none; }
-        @media (min-width: 768px) {
-            #chat-list-column.mobile-hidden { display: flex; }
-            #chat-window.mobile-hidden { display: none; }
-            #chat-window.mobile-visible { display: flex; }
-        }
-        
-        /* Opções de mensagem que aparecem no hover */
-        .message-options, .message-reactions-picker {
-            display: none;
-        }
-        .message-wrapper:hover .message-options, .message-wrapper:hover .message-reactions-picker {
-            display: flex;
-        }
+        /* Animação para o modal */
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        #modal-backdrop { animation: fadeIn 0.2s ease-out; }
+        #modal-content { animation: fadeInUp 0.3s ease-out; }
     </style>
 </head>
 <body class="bg-bg-light dark:bg-bg-dark text-text-primary-light dark:text-text-primary-dark h-screen overflow-hidden">
 
     <!-- Ecrã de Loading Inicial -->
-    <div id="loading-container" class="flex items-center justify-center h-full">
+    <div id="loading-container" class="flex items-center justify-center h-full fixed inset-0 bg-bg-light dark:bg-bg-dark z-50">
         <svg class="animate-spin h-10 w-10 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -82,11 +71,6 @@
 
     <!-- Telas de Autenticação -->
     <div id="auth-container" class="hidden items-center justify-center h-full"></div>
-    
-    <!-- Telas de Fluxo Pós-Login -->
-    <div id="signup-success-container" class="hidden items-center justify-center h-full"></div>
-    <div id="email-verification-container" class="hidden items-center justify-center h-full"></div>
-    <div id="username-container" class="hidden items-center justify-center h-full"></div>
 
     <!-- Container Principal do App (Chat) -->
     <div id="main-app-container" class="hidden h-full w-full">
@@ -105,12 +89,11 @@
     <!-- Modals -->
     <div id="modal-container" class="fixed inset-0 z-50 hidden"></div>
 
-    <!-- Firebase SDKs (Versões atualizadas) -->
+    <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, collection, query, where, getDocs, addDoc, onSnapshot, serverTimestamp, orderBy, updateDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-        import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, collection, query, where, getDocs, addDoc, onSnapshot, serverTimestamp, updateDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         // --- INÍCIO DO CÓDIGO JAVASCRIPT ---
 
@@ -127,7 +110,6 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const rtdb = getDatabase(app);
 
         const ui = {
             loading: document.getElementById('loading-container'),
@@ -144,7 +126,8 @@
             currentUser: null,
             userData: null,
             activeChatId: null,
-            listeners: {},
+            unsubscribeUserChats: null,
+            unsubscribeMessages: null,
             theme: localStorage.getItem('theme') || 'light',
         };
         
@@ -157,10 +140,7 @@
         }
 
         function showScreen(screenId) {
-            ['loading-container', 'auth-container', 'main-app-container'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.classList.add('hidden');
-            });
+            ['auth-container', 'main-app-container'].forEach(id => ui[id.split('-')[0]].classList.add('hidden'));
             const screenToShow = document.getElementById(screenId);
             if (screenToShow) screenToShow.classList.remove('hidden');
         }
@@ -168,10 +148,7 @@
         function renderAuthScreen() {
             const content = `
                 <div class="w-full max-w-md p-8 space-y-6 bg-sidebar-light dark:bg-sidebar-dark rounded-lg shadow-md">
-                    <div class="text-center">
-                        <h2 class="text-2xl font-bold">Bem-vindo ao Teleclone</h2>
-                        <p class="text-text-secondary-light dark:text-text-secondary-dark">Faça login ou crie sua conta</p>
-                    </div>
+                    <div class="text-center"><h2 class="text-2xl font-bold">Bem-vindo ao Teleclone</h2><p class="text-text-secondary-light dark:text-text-secondary-dark">Faça login ou crie sua conta</p></div>
                     <div id="auth-error" class="p-3 text-sm text-red-700 bg-red-100 rounded-lg hidden"></div>
                     <div id="login-view">
                         <form id="login-form" class="space-y-6">
@@ -198,11 +175,8 @@
         function renderSideMenu(userData) {
             const content = `
                 <div class="flex items-center space-x-4 mb-8">
-                    <img id="menu-avatar" src="https://placehold.co/48x48/E2E8F0/4A5568?text=${userData.username.charAt(0).toUpperCase()}" alt="Avatar" class="w-12 h-12 rounded-full">
-                    <div>
-                        <p id="menu-username" class="font-semibold">${userData.username}</p>
-                        <p id="menu-email" class="text-sm text-text-secondary-light dark:text-text-secondary-dark">${userData.email}</p>
-                    </div>
+                    <img src="https://placehold.co/48x48/E2E8F0/4A5568?text=${userData.username.charAt(0).toUpperCase()}" alt="Avatar" class="w-12 h-12 rounded-full">
+                    <div><p class="font-semibold">${userData.username}</p><p class="text-sm text-text-secondary-light dark:text-text-secondary-dark">${userData.email}</p></div>
                 </div>
                 <nav class="flex flex-col space-y-1">
                     <button id="profile-button" class="flex items-center p-2 space-x-3 rounded-lg hover:bg-hover-light dark:hover:bg-hover-dark">
@@ -237,9 +211,7 @@
                     </button>
                     <div class="relative flex-grow">
                         <input id="search-chat-input" type="text" placeholder="Procurar" class="w-full bg-bg-light dark:bg-bg-dark rounded-lg py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <svg class="w-5 h-5 text-text-secondary-light dark:text-text-secondary-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                        </div>
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><svg class="w-5 h-5 text-text-secondary-light dark:text-text-secondary-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg></div>
                     </div>
                     <button id="new-chat-button" class="p-2 rounded-lg hover:bg-hover-light dark:hover:bg-hover-dark">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
@@ -249,27 +221,29 @@
             render(ui.chatListColumn, content);
         }
 
+        function renderWelcomeScreen() {
+             const content = `
+                <div class="flex flex-col items-center justify-center h-full text-center p-4">
+                    <svg class="w-24 h-24 text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 5.523-4.477 10-10 10S1 17.523 1 12 5.477 2 11 2s10 4.477 10 10z"></path></svg>
+                    <h2 class="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Bem-vindo ao Teleclone</h2>
+                    <p class="text-text-secondary-light dark:text-text-secondary-dark">Selecione um chat para começar a conversar.</p>
+                </div>`;
+            render(ui.chatWindow, content);
+        }
+
         function renderChatWindow(chatId, otherUserName) {
             const content = `
                 <header id="chat-header" class="bg-header-light dark:bg-header-dark p-3 border-b border-border-light dark:border-border-dark flex justify-between items-center flex-shrink-0">
                     <div class="flex items-center">
-                        <button id="back-to-chat-list-button" class="p-2 rounded-full hover:bg-hover-light dark:hover:bg-hover-dark md:hidden mr-2">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
-                        </button>
-                        <div id="chat-header-info">
-                            <h2 class="text-lg font-semibold">${otherUserName}</h2>
-                            <div id="status-container"><p class="text-sm text-text-secondary-light dark:text-text-secondary-dark">online</p></div>
-                        </div>
+                        <button id="back-to-chat-list-button" class="p-2 rounded-full hover:bg-hover-light dark:hover:bg-hover-dark md:hidden mr-2"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg></button>
+                        <div><h2 class="text-lg font-semibold">${otherUserName}</h2><p class="text-sm text-text-secondary-light dark:text-text-secondary-dark">online</p></div>
                     </div>
                 </header>
                 <div id="message-list" class="flex-1 p-4 md:p-6 overflow-y-auto"></div>
                 <footer class="bg-header-light dark:bg-header-dark p-2 border-t border-border-light dark:border-border-dark flex-shrink-0">
                     <form id="message-form" class="flex items-center space-x-2">
-                         <button type="button" class="p-2 rounded-full hover:bg-hover-light dark:hover:bg-hover-dark text-text-secondary-light dark:text-text-secondary-dark">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>
-                        </button>
                         <input id="message-input" type="text" placeholder="Escreva uma mensagem..." class="flex-1 bg-bg-light dark:bg-bg-dark rounded-full py-2 px-4 focus:outline-none" autocomplete="off" required>
-                        <button type="submit" class="bg-blue-500 text-white w-10 h-10 flex items-center justify-center rounded-full hover:bg-blue-600">
+                        <button type="submit" class="bg-blue-500 text-white w-10 h-10 flex items-center justify-center rounded-full hover:bg-blue-600 flex-shrink-0">
                             <svg class="w-6 h-6 transform rotate-90" fill="currentColor" viewBox="0 0 20 20"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"></path></svg>
                         </button>
                     </form>
@@ -277,46 +251,21 @@
             render(ui.chatWindow, content);
         }
 
-        function renderMessage(message) {
-            const messageListEl = document.getElementById('message-list');
-            if (!messageListEl) return;
-            const isSent = message.senderId === state.currentUser.uid;
-            const messageAlign = isSent ? 'justify-end' : 'justify-start';
-            const bubbleColor = isSent ? 'bg-bubble-sent-light dark:bg-bubble-sent-dark' : 'bg-bubble-received-light dark:bg-bubble-received-dark';
-            
-            const messageHTML = `
-                <div class="flex ${messageAlign} mb-3">
-                    <div class="message-wrapper max-w-xs lg:max-w-md">
-                        <div class="${bubbleColor} rounded-lg px-3 py-2 shadow-md">
-                            <p class="text-sm break-words">${message.text}</p>
-                            <p class="text-xs text-right text-text-secondary-light dark:text-text-secondary-dark mt-1">${message.timestamp ? new Date(message.timestamp.seconds * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}</p>
-                        </div>
-                    </div>
-                </div>
-            `;
-            messageListEl.insertAdjacentHTML('beforeend', messageHTML);
-        }
-
         function renderModal(title, content) {
             const modalHTML = `
                 <div id="modal-backdrop" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center">
-                    <div class="bg-sidebar-light dark:bg-sidebar-dark rounded-lg shadow-xl p-6 w-full max-w-md m-4 animate-fade-in-up">
+                    <div id="modal-content" class="bg-sidebar-light dark:bg-sidebar-dark rounded-lg shadow-xl p-6 w-full max-w-md m-4">
                         <div class="flex justify-between items-center mb-4">
                             <h3 class="text-xl font-semibold">${title}</h3>
-                            <button id="modal-close-button" class="p-1 rounded-full hover:bg-hover-light dark:hover:bg-hover-dark">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                            </button>
+                            <button id="modal-close-button" class="p-1 rounded-full hover:bg-hover-light dark:hover:bg-hover-dark"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
                         </div>
                         <div>${content}</div>
                     </div>
-                </div>
-            `;
+                </div>`;
             render(ui.modalContainer, modalHTML);
             ui.modalContainer.classList.remove('hidden');
             document.getElementById('modal-close-button').addEventListener('click', hideModal);
-            document.getElementById('modal-backdrop').addEventListener('click', (e) => {
-                if (e.target.id === 'modal-backdrop') hideModal();
-            });
+            document.getElementById('modal-backdrop').addEventListener('click', (e) => { if (e.target.id === 'modal-backdrop') hideModal(); });
         }
 
         function hideModal() {
@@ -326,10 +275,13 @@
 
         // --- LÓGICA PRINCIPAL E AUTENTICAÇÃO ---
 
-        onAuthStateChanged(auth, async (user) => {
-            if (state.listeners.userChats) state.listeners.userChats();
-            if (state.listeners.messages) state.listeners.messages();
+        function cleanupListeners() {
+            if (state.unsubscribeUserChats) state.unsubscribeUserChats();
+            if (state.unsubscribeMessages) state.unsubscribeMessages();
+        }
 
+        onAuthStateChanged(auth, async (user) => {
+            cleanupListeners();
             if (user) {
                 state.currentUser = user;
                 const userDocRef = doc(db, "users", user.uid);
@@ -337,18 +289,12 @@
 
                 if (userDocSnap.exists()) {
                     state.userData = userDocSnap.data();
-                    await setupMainApp();
                 } else {
                     const newUsername = user.email.split('@')[0];
-                    await setDoc(userDocRef, {
-                        uid: user.uid,
-                        email: user.email,
-                        username: newUsername,
-                        createdAt: serverTimestamp()
-                    });
                     state.userData = { uid: user.uid, email: user.email, username: newUsername };
-                    await setupMainApp();
+                    await setDoc(userDocRef, { ...state.userData, createdAt: serverTimestamp() });
                 }
+                await setupMainApp();
             } else {
                 state = { ...state, currentUser: null, userData: null, activeChatId: null };
                 renderAuthScreen();
@@ -360,20 +306,17 @@
         async function setupMainApp() {
             renderChatListColumn();
             renderSideMenu(state.userData);
+            renderWelcomeScreen();
             showScreen('main-app-container');
             setupMainAppListeners();
             listenForUserChats();
-        }
-
-        function handleLogout() {
-            signOut(auth).catch(error => console.error("Erro ao fazer logout:", error));
         }
 
         // --- LÓGICA DE CHAT ---
 
         function listenForUserChats() {
             const userChatsRef = collection(db, `users/${state.currentUser.uid}/userChats`);
-            state.listeners.userChats = onSnapshot(userChatsRef, async (snapshot) => {
+            state.unsubscribeUserChats = onSnapshot(userChatsRef, async (snapshot) => {
                 const chatPromises = snapshot.docs.map(doc => getDoc(doc.data().ref));
                 const chatDocs = await Promise.all(chatPromises);
                 
@@ -385,11 +328,7 @@
                         if (otherUserId) {
                              const otherUserDoc = await getDoc(doc(db, "users", otherUserId));
                             if (otherUserDoc.exists()) {
-                                chatsData.push({
-                                    id: chatDoc.id,
-                                    ...chatData,
-                                    otherUser: otherUserDoc.data()
-                                });
+                                chatsData.push({ id: chatDoc.id, ...chatData, otherUser: otherUserDoc.data() });
                             }
                         }
                     }
@@ -402,13 +341,13 @@
             const chatListEl = document.getElementById('chat-list');
             if (!chatListEl) return;
             if (chats.length === 0) {
-                chatListEl.innerHTML = '<p class="p-4 text-center text-text-secondary-light dark:text-text-secondary-dark">Nenhum chat. Comece uma nova conversa!</p>';
+                chatListEl.innerHTML = '<p class="p-4 text-center text-text-secondary-light dark:text-text-secondary-dark">Comece uma nova conversa!</p>';
                 return;
             }
             
-            chats.sort((a, b) => (b.lastMessage?.timestamp || 0) - (a.lastMessage?.timestamp || 0));
+            chats.sort((a, b) => (b.lastMessage?.timestamp?.seconds || 0) - (a.lastMessage?.timestamp?.seconds || 0));
             
-            const chatsHTML = chats.map(chat => {
+            chatListEl.innerHTML = chats.map(chat => {
                 const otherUser = chat.otherUser;
                 const lastMessage = chat.lastMessage ? chat.lastMessage.text : 'Nenhuma mensagem ainda';
                 const time = chat.lastMessage?.timestamp ? new Date(chat.lastMessage.timestamp.seconds * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
@@ -416,17 +355,11 @@
                     <div class="chat-list-item flex items-center p-3 hover:bg-hover-light dark:hover:bg-hover-dark cursor-pointer border-b border-border-light dark:border-border-dark" data-chat-id="${chat.id}">
                         <img src="https://placehold.co/48x48/E2E8F0/4A5568?text=${otherUser.username.charAt(0).toUpperCase()}" alt="Avatar" class="w-12 h-12 rounded-full mr-4">
                         <div class="flex-grow overflow-hidden">
-                            <div class="flex justify-between">
-                                <p class="font-semibold truncate">${otherUser.username}</p>
-                                <p class="text-xs text-text-secondary-light dark:text-text-secondary-dark flex-shrink-0">${time}</p>
-                            </div>
+                            <div class="flex justify-between"><p class="font-semibold truncate">${otherUser.username}</p><p class="text-xs text-text-secondary-light dark:text-text-secondary-dark flex-shrink-0">${time}</p></div>
                             <p class="text-sm text-text-secondary-light dark:text-text-secondary-dark truncate">${lastMessage}</p>
                         </div>
-                    </div>
-                `;
+                    </div>`;
             }).join('');
-            
-            chatListEl.innerHTML = chatsHTML;
 
             document.querySelectorAll('.chat-list-item').forEach(item => {
                 item.addEventListener('click', () => {
@@ -438,7 +371,7 @@
         }
 
         function openChat(chatId, chatData) {
-            if (state.listeners.messages) state.listeners.messages();
+            if (state.unsubscribeMessages) state.unsubscribeMessages();
             state.activeChatId = chatId;
             renderChatWindow(chatId, chatData.otherUser.username);
             listenForMessages(chatId);
@@ -454,81 +387,74 @@
 
         function listenForMessages(chatId) {
             const messagesRef = collection(db, `chats/${chatId}/messages`);
-            const q = query(messagesRef, orderBy("timestamp", "asc"));
             const messageListEl = document.getElementById('message-list');
             
-            state.listeners.messages = onSnapshot(q, (snapshot) => {
+            state.unsubscribeMessages = onSnapshot(messagesRef, (snapshot) => {
                 if (!messageListEl) return;
+                const messages = snapshot.docs.map(doc => doc.data()).sort((a, b) => a.timestamp?.seconds - b.timestamp?.seconds);
                 messageListEl.innerHTML = '';
-                snapshot.forEach(doc => renderMessage(doc.data()));
+                messages.forEach(msg => {
+                    const isSent = msg.senderId === state.currentUser.uid;
+                    messageListEl.innerHTML += `
+                        <div class="flex ${isSent ? 'justify-end' : 'justify-start'} mb-3">
+                            <div class="max-w-xs lg:max-w-md">
+                                <div class="${isSent ? 'bg-bubble-sent-light dark:bg-bubble-sent-dark' : 'bg-bubble-received-light dark:bg-bubble-received-dark'} rounded-lg px-3 py-2 shadow-md">
+                                    <p class="text-sm break-words">${msg.text}</p>
+                                    <p class="text-xs text-right text-text-secondary-light dark:text-text-secondary-dark mt-1">${msg.timestamp ? new Date(msg.timestamp.seconds * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}</p>
+                                </div>
+                            </div>
+                        </div>`;
+                });
                 messageListEl.scrollTop = messageListEl.scrollHeight;
             });
         }
 
         async function handleSendMessage(chatId, text) {
             if (!text.trim()) return;
-            
-            const messagesRef = collection(db, `chats/${chatId}/messages`);
-            const chatRef = doc(db, "chats", chatId);
-
+            const messagePayload = { text, senderId: state.currentUser.uid, timestamp: serverTimestamp() };
             try {
-                await addDoc(messagesRef, {
-                    text: text,
-                    senderId: state.currentUser.uid,
-                    timestamp: serverTimestamp()
-                });
-                await updateDoc(chatRef, {
-                    lastMessage: { text: text, timestamp: serverTimestamp(), senderId: state.currentUser.uid }
-                });
+                await addDoc(collection(db, `chats/${chatId}/messages`), messagePayload);
+                await updateDoc(doc(db, "chats", chatId), { lastMessage: messagePayload });
             } catch (error) { console.error("Erro ao enviar mensagem:", error); }
         }
 
-        async function handleStartChat(targetUserId, targetUsername) {
+        async function handleStartChat(targetUser) {
             hideModal();
             const currentUserId = state.currentUser.uid;
-            const chatId = currentUserId > targetUserId ? `${currentUserId}_${targetUserId}` : `${targetUserId}_${currentUserId}`;
+            const chatId = currentUserId > targetUser.uid ? `${currentUserId}_${targetUser.uid}` : `${targetUser.uid}_${currentUserId}`;
             const chatRef = doc(db, "chats", chatId);
 
             try {
                 const chatSnap = await getDoc(chatRef);
                 if (!chatSnap.exists()) {
-                    await setDoc(chatRef, { members: [currentUserId, targetUserId], createdAt: serverTimestamp(), lastMessage: null });
+                    await setDoc(chatRef, { members: [currentUserId, targetUser.uid], createdAt: serverTimestamp(), lastMessage: null });
                     const batch = writeBatch(db);
                     batch.set(doc(db, `users/${currentUserId}/userChats`, chatId), { ref: chatRef });
-                    batch.set(doc(db, `users/${targetUserId}/userChats`, chatId), { ref: chatRef });
+                    batch.set(doc(db, `users/${targetUser.uid}/userChats`, chatId), { ref: chatRef });
                     await batch.commit();
                 }
                 const newChatData = (await getDoc(chatRef)).data();
-                const otherUserDoc = await getDoc(doc(db, "users", targetUserId));
-                openChat(chatId, { ...newChatData, otherUser: otherUserDoc.data() });
+                openChat(chatId, { ...newChatData, otherUser: targetUser });
             } catch (error) { console.error("Erro ao iniciar chat:", error); }
         }
 
         // --- SETUP DE EVENT LISTENERS ---
 
         function setupAuthListeners() {
-            document.getElementById('login-form')?.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const email = document.getElementById('login-email').value;
-                const password = document.getElementById('login-password').value;
-                try { await signInWithEmailAndPassword(auth, email, password); } 
-                catch (error) { document.getElementById('auth-error').textContent = "Email ou senha inválidos."; document.getElementById('auth-error').classList.remove('hidden'); }
-            });
+            const loginForm = document.getElementById('login-form');
+            const signupForm = document.getElementById('signup-form');
+            const authErrorDiv = document.getElementById('auth-error');
 
-            document.getElementById('signup-form')?.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const email = document.getElementById('signup-email').value;
-                const password = document.getElementById('signup-password').value;
-                try { await createUserWithEmailAndPassword(auth, email, password); }
-                catch (error) { document.getElementById('auth-error').textContent = "Erro ao criar conta: " + error.message; document.getElementById('auth-error').classList.remove('hidden'); }
-            });
+            const showError = (msg) => { authErrorDiv.textContent = msg; authErrorDiv.classList.remove('hidden'); };
 
+            loginForm?.addEventListener('submit', async (e) => { e.preventDefault(); try { await signInWithEmailAndPassword(auth, loginForm.elements['login-email'].value, loginForm.elements['login-password'].value); } catch (error) { showError("Email ou senha inválidos."); } });
+            signupForm?.addEventListener('submit', async (e) => { e.preventDefault(); try { await createUserWithEmailAndPassword(auth, signupForm.elements['signup-email'].value, signupForm.elements['signup-password'].value); } catch (error) { showError("Erro ao criar conta: " + error.message); } });
             document.getElementById('show-signup-link')?.addEventListener('click', (e) => { e.preventDefault(); document.getElementById('login-view').classList.add('hidden'); document.getElementById('signup-view').classList.remove('hidden'); });
             document.getElementById('show-login-link')?.addEventListener('click', (e) => { e.preventDefault(); document.getElementById('signup-view').classList.add('hidden'); document.getElementById('login-view').classList.remove('hidden'); });
         }
         
         function setupMainAppListeners() {
-            document.getElementById('logout-button')?.addEventListener('click', handleLogout);
+            document.getElementById('logout-button')?.addEventListener('click', () => signOut(auth));
             document.getElementById('dark-mode-toggle')?.addEventListener('change', (e) => {
                 state.theme = e.target.checked ? 'dark' : 'light';
                 localStorage.setItem('theme', state.theme);
@@ -540,20 +466,18 @@
             ui.menuOverlay?.addEventListener('click', toggleMenu);
 
             document.getElementById('profile-button')?.addEventListener('click', () => {
-                 const content = `<div class="flex flex-col items-center space-y-4">
+                 renderModal("Meu Perfil", `<div class="flex flex-col items-center space-y-4">
                     <img src="https://placehold.co/96x96/E2E8F0/4A5568?text=${state.userData.username.charAt(0).toUpperCase()}" alt="Avatar" class="w-24 h-24 rounded-full">
                     <h4 class="text-2xl font-bold">${state.userData.username}</h4>
                     <p class="text-text-secondary-light dark:text-text-secondary-dark">${state.userData.email}</p>
-                </div>`;
-                renderModal("Meu Perfil", content);
+                </div>`);
             });
             
             document.getElementById('new-chat-button')?.addEventListener('click', () => {
-                const content = `<div>
+                renderModal("Iniciar Novo Chat", `<div>
                     <input id="user-search-input" type="text" placeholder="Digite um nome de usuário..." class="w-full px-4 py-2 border rounded-lg bg-bg-light dark:bg-bg-dark focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <div id="user-search-results" class="mt-4 max-h-60 overflow-y-auto"><p class="text-center text-text-secondary-light dark:text-text-secondary-dark">Digite para procurar usuários.</p></div>
-                </div>`;
-                renderModal("Iniciar Novo Chat", content);
+                </div>`);
                 document.getElementById('user-search-input').addEventListener('input', (e) => handleSearchUsers(e.target.value));
             });
         }
@@ -566,17 +490,21 @@
             try {
                 const q = query(collection(db, "users"), where("username", ">=", searchTerm), where("username", "<=", searchTerm + '\uf8ff'));
                 const querySnapshot = await getDocs(q);
-                let usersHTML = querySnapshot.docs
-                    .map(doc => doc.data())
-                    .filter(user => user.uid !== state.currentUser.uid)
-                    .map(user => `<div data-uid="${user.uid}" data-username="${user.username}" class="user-search-item flex items-center justify-between p-2 rounded-lg hover:bg-hover-light dark:hover:bg-hover-dark cursor-pointer">
-                            <span>${user.username}</span>
-                            <button class="text-sm bg-blue-500 text-white px-3 py-1 rounded-md">Conversar</button>
-                        </div>`)
-                    .join('');
-                resultsContainer.innerHTML = usersHTML || '<p class="text-center">Nenhum usuário encontrado.</p>';
+                const users = querySnapshot.docs.map(doc => doc.data()).filter(user => user.uid !== state.currentUser.uid);
+                
+                if (users.length === 0) {
+                    resultsContainer.innerHTML = '<p class="text-center">Nenhum usuário encontrado.</p>';
+                    return;
+                }
+
+                resultsContainer.innerHTML = users.map(user => `
+                    <div data-user='${JSON.stringify(user)}' class="user-search-item flex items-center justify-between p-2 rounded-lg hover:bg-hover-light dark:hover:bg-hover-dark cursor-pointer">
+                        <span>${user.username}</span>
+                        <button class="text-sm bg-blue-500 text-white px-3 py-1 rounded-md">Conversar</button>
+                    </div>`).join('');
+
                 document.querySelectorAll('.user-search-item').forEach(item => {
-                    item.addEventListener('click', () => handleStartChat(item.dataset.uid, item.dataset.username));
+                    item.addEventListener('click', () => handleStartChat(JSON.parse(item.dataset.user)));
                 });
             } catch (error) { console.error("Erro ao procurar usuários:", error); resultsContainer.innerHTML = '<p class="text-center text-red-500">Ocorreu um erro.</p>'; }
         }
@@ -590,10 +518,12 @@
             });
 
             document.getElementById('back-to-chat-list-button')?.addEventListener('click', () => {
-                if (state.listeners.messages) state.listeners.messages();
+                if (state.unsubscribeMessages) state.unsubscribeMessages();
                 state.activeChatId = null;
-                ui.chatWindow.classList.add('hidden');
+                renderWelcomeScreen();
                 ui.chatListColumn.classList.remove('hidden');
+                ui.chatWindow.classList.add('hidden');
+                ui.chatWindow.classList.remove('flex');
             });
         }
     </script>
