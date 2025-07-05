@@ -40,8 +40,16 @@
 </head>
 <body class="bg-gray-100 h-screen overflow-hidden">
 
+    <!-- Ecrã de Loading Inicial -->
+    <div id="loading-container" class="flex items-center justify-center h-full bg-gray-200">
+        <svg class="animate-spin h-10 w-10 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+    </div>
+
     <!-- Telas de Autenticação -->
-    <div id="auth-container" class="flex items-center justify-center h-full bg-gray-200">
+    <div id="auth-container" class="hidden items-center justify-center h-full bg-gray-200">
         <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
             <div class="text-center">
                 <h2 class="text-2xl font-bold text-gray-800">Bem-vindo ao Teleclone</h2>
@@ -72,21 +80,21 @@
     </div>
     
     <!-- Telas de Fluxo Pós-Login -->
-    <div id="signup-success-container" class="hidden flex items-center justify-center h-full bg-gray-200">
+    <div id="signup-success-container" class="hidden items-center justify-center h-full bg-gray-200">
         <div class="w-full max-w-md p-8 space-y-4 text-center bg-white rounded-lg shadow-md">
             <h2 class="text-2xl font-bold text-green-600">Conta Criada!</h2>
             <p class="text-gray-600">Enviamos um link de verificação para seu e-mail. Por favor, clique no link para ativar sua conta e depois faça o login.</p>
             <button id="back-to-login-btn" class="px-4 py-2 font-semibold text-white bg-blue-500 rounded-lg hover:bg-blue-600">Voltar para Login</button>
         </div>
     </div>
-    <div id="email-verification-container" class="hidden flex items-center justify-center h-full bg-gray-200">
+    <div id="email-verification-container" class="hidden items-center justify-center h-full bg-gray-200">
         <div class="w-full max-w-md p-8 space-y-4 text-center bg-white rounded-lg shadow-md">
             <h2 class="text-2xl font-bold text-gray-800">Verifique seu E-mail</h2>
             <p class="text-gray-600">Sua conta ainda não foi verificada. Por favor, cheque sua caixa de entrada e clique no link que enviamos. Depois, pode fazer o login.</p>
             <button id="logout-verification" class="px-4 py-2 font-semibold text-white bg-red-500 rounded-lg hover:bg-red-600">Sair</button>
         </div>
     </div>
-    <div id="username-container" class="hidden flex items-center justify-center h-full bg-gray-200">
+    <div id="username-container" class="hidden items-center justify-center h-full bg-gray-200">
         <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
             <h2 class="text-2xl font-bold text-center text-gray-800">Quase lá! Escolha seu nome de usuário</h2>
             <p class="text-center text-gray-500 text-sm">Este nome será único e visível para outros usuários.</p>
@@ -154,7 +162,6 @@
             <!-- Coluna da Janela de Chat -->
             <main id="chat-window" class="w-full flex-1 flex-col h-full absolute md:static inset-0 z-0 hidden md:flex" style="background-image: url('https://i.pinimg.com/736x/8c/98/99/8c98994518b575bfd8c949e91d20548b.jpg'); background-size: contain;">
                 <header id="chat-header" class="bg-white p-4 border-b border-gray-200 flex justify-between items-center flex-shrink-0">
-                    <!-- Botão de Voltar para Mobile -->
                     <button id="back-to-chat-list-button" class="p-2 rounded-lg hover:bg-gray-200 md:hidden mr-2">
                         <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
                     </button>
@@ -197,6 +204,16 @@
             </form>
         </div>
     </div>
+    <div id="delete-chat-modal" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden items-center justify-center">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm">
+            <h3 class="text-xl font-bold mb-2">Eliminar Conversa</h3>
+            <p class="text-gray-600 mb-6">Tem a certeza que quer eliminar esta conversa? Esta ação não pode ser desfeita.</p>
+            <div class="flex justify-end space-x-4">
+                <button id="cancel-delete-chat" class="px-4 py-2 font-semibold text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">Cancelar</button>
+                <button id="confirm-delete-chat" class="px-4 py-2 font-semibold text-white bg-red-500 rounded-lg hover:bg-red-600">Eliminar</button>
+            </div>
+        </div>
+    </div>
     <div id="new-group-modal" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden items-center justify-center">
          <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm text-center">
             <h3 class="text-xl font-bold mb-4">Criar Novo Grupo</h3>
@@ -216,7 +233,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
         import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, collection, query, where, getDocs, addDoc, onSnapshot, serverTimestamp, orderBy, updateDoc, increment } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, collection, query, where, getDocs, addDoc, onSnapshot, serverTimestamp, orderBy, updateDoc, increment, deleteDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyB98-bStjweF82UALPiw2YiwKKn1IhZASE",
@@ -232,6 +249,7 @@
         const db = getFirestore(app);
 
         const containers = {
+            loading: document.getElementById('loading-container'),
             auth: document.getElementById('auth-container'),
             verification: document.getElementById('email-verification-container'),
             username: document.getElementById('username-container'),
@@ -247,29 +265,22 @@
         let currentUser = null;
         let activeChatId = null;
         let unsubscribeChatList = null;
+        let unsubscribeUserChats = null;
         let unsubscribeMessages = null;
         let localChats = {};
-        let localUserChatsMetadata = {};
 
-        // Combina e renderiza a lista de chats
         function renderChatList() {
             const chatListEl = document.getElementById('chat-list');
             chatListEl.innerHTML = '';
 
-            const combinedData = Object.keys(localChats).map(chatId => ({
-                id: chatId,
-                ...localChats[chatId],
-                unreadCount: localUserChatsMetadata[chatId]?.unreadCount || 0
-            }));
+            const sortedChats = Object.values(localChats).sort((a, b) => (b.lastUpdate?.seconds || 0) - (a.lastUpdate?.seconds || 0));
 
-            combinedData.sort((a, b) => (b.lastUpdate?.seconds || 0) - (a.lastUpdate?.seconds || 0));
-
-            if (combinedData.length === 0) {
+            if (sortedChats.length === 0) {
                 chatListEl.innerHTML = `<p class="p-4 text-center text-gray-500">Nenhum chat ainda. Comece uma nova conversa.</p>`;
                 return;
             }
 
-            combinedData.forEach(chat => {
+            sortedChats.forEach(chat => {
                 const otherMemberId = chat.members.find(id => id !== currentUser.uid);
                 if (!otherMemberId) return;
 
@@ -277,7 +288,7 @@
                     if (!userDoc.exists()) return;
                     const otherUserName = userDoc.data().username;
                     const chatEl = document.createElement('div');
-                    chatEl.className = `flex items-center p-4 hover:bg-gray-100 cursor-pointer border-b border-gray-200 ${chat.id === activeChatId ? 'bg-blue-50' : ''}`;
+                    chatEl.className = `flex items-center p-4 hover:bg-gray-100 cursor-pointer border-b border-gray-200 relative group`;
                     
                     const unreadBadge = chat.unreadCount > 0 
                         ? `<span class="bg-blue-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center ml-auto">${chat.unreadCount}</span>`
@@ -290,13 +301,26 @@
                             <p class="text-sm text-gray-500 truncate">${chat.lastMessage || 'Nenhuma mensagem'}</p>
                         </div>
                         ${unreadBadge}
+                        <div class="absolute top-2 right-2 hidden group-hover:block">
+                            <button class="chat-options-btn p-1 rounded-full hover:bg-gray-300" data-chat-id="${chat.id}">
+                                <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg>
+                            </button>
+                        </div>
                     `;
-                    chatEl.addEventListener('click', () => {
+                    
+                    const mainContent = chatEl.querySelector('.flex-grow');
+                    mainContent.addEventListener('click', () => {
                         if (activeChatId !== chat.id) {
                             activeChatId = chat.id;
                             openChat(chat.id, otherUserName);
                         }
                     });
+
+                    chatEl.querySelector('.chat-options-btn').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        showDeleteConfirmation(chat.id);
+                    });
+
                     chatListEl.appendChild(chatEl);
                 });
             });
@@ -304,10 +328,10 @@
 
         onAuthStateChanged(auth, async (user) => {
             if (unsubscribeChatList) unsubscribeChatList();
+            if (unsubscribeUserChats) unsubscribeUserChats();
             if (unsubscribeMessages) unsubscribeMessages();
             
             localChats = {};
-            localUserChatsMetadata = {};
             currentUser = user;
 
             if (user) {
@@ -326,6 +350,7 @@
             } else {
                 showContainer('auth');
             }
+            containers.loading.classList.add('hidden');
         });
         
         function setupMainApp(user, userData) {
@@ -334,27 +359,27 @@
             document.getElementById('modal-username').textContent = userData.username;
             document.getElementById('modal-email').textContent = user.email;
 
-            // Listener para os chats do usuário
             const chatsQuery = query(collection(db, "chats"), where("members", "array-contains", user.uid));
             unsubscribeChatList = onSnapshot(chatsQuery, (snapshot) => {
                 snapshot.docChanges().forEach((change) => {
                     if (change.type === "removed") {
                         delete localChats[change.doc.id];
                     } else {
-                        localChats[change.doc.id] = change.doc.data();
+                        localChats[change.doc.id] = { ...localChats[change.doc.id], ...change.doc.data(), id: change.doc.id };
                     }
                 });
                 renderChatList();
             });
 
-            // Listener para os metadados dos chats do usuário (contador)
             const userChatsQuery = collection(db, "users", user.uid, "userChats");
-            onSnapshot(userChatsQuery, (snapshot) => {
+            unsubscribeUserChats = onSnapshot(userChatsQuery, (snapshot) => {
                  snapshot.docChanges().forEach((change) => {
                     if (change.type === "removed") {
-                        delete localUserChatsMetadata[change.doc.id];
+                        if(localChats[change.doc.id]) delete localChats[change.doc.id].unreadCount;
                     } else {
-                        localUserChatsMetadata[change.doc.id] = change.doc.data();
+                        if(localChats[change.doc.id]) {
+                            localChats[change.doc.id].unreadCount = change.doc.data().unreadCount;
+                        }
                     }
                 });
                 renderChatList();
@@ -391,11 +416,40 @@
                 messageListEl.scrollTop = messageListEl.scrollHeight;
             });
 
-            // Resetar contador de não lidos
             const userChatRef = doc(db, "users", currentUser.uid, "userChats", chatId);
             await setDoc(userChatRef, { unreadCount: 0 }, { merge: true });
         }
         
+        function showDeleteConfirmation(chatId) {
+            const modal = document.getElementById('delete-chat-modal');
+            modal.classList.remove('hidden');
+            modal.dataset.chatId = chatId;
+        }
+
+        async function deleteChat(chatId) {
+            if (!chatId) return;
+            try {
+                const chatRef = doc(db, "chats", chatId);
+                const chatSnap = await getDoc(chatRef);
+                if (chatSnap.exists()) {
+                    const members = chatSnap.data().members;
+                    // Delete metadata for both users
+                    for (const userId of members) {
+                        await deleteDoc(doc(db, "users", userId, "userChats", chatId));
+                    }
+                    // Delete the chat itself
+                    // Note: Subcollections like 'messages' are not deleted automatically.
+                    // For a full implementation, one would need a cloud function to delete subcollections.
+                    await deleteDoc(chatRef);
+                }
+                if (activeChatId === chatId) {
+                    document.getElementById('back-to-chat-list-button').click();
+                }
+            } catch (error) {
+                console.error("Error deleting chat:", error);
+            }
+        }
+
         // --- Formulários e Ações ---
         document.getElementById('login-form').addEventListener('submit', (e) => {
             e.preventDefault();
@@ -448,26 +502,22 @@
             const input = document.getElementById('message-input');
             const text = input.value.trim();
             if (text && activeChatId && currentUser) {
-                // Adiciona a mensagem
                 await addDoc(collection(db, "chats", activeChatId, "messages"), {
                     text: text,
                     senderId: currentUser.uid,
                     timestamp: serverTimestamp()
                 });
-                // Atualiza o chat principal
                 await updateDoc(doc(db, "chats", activeChatId), { 
                     lastMessage: text,
                     lastUpdate: serverTimestamp()
                 });
                 
-                // Incrementa o contador do outro usuário
                 const chatDoc = await getDoc(doc(db, "chats", activeChatId));
                 const recipientId = chatDoc.data().members.find(id => id !== currentUser.uid);
                 if (recipientId) {
                     const recipientChatRef = doc(db, "users", recipientId, "userChats", activeChatId);
                     await setDoc(recipientChatRef, { unreadCount: increment(1) }, { merge: true });
                 }
-
                 input.value = '';
             }
         });
@@ -498,14 +548,12 @@
                 const chatDocSnap = await getDoc(chatDocRef);
 
                 if (!chatDocSnap.exists()) {
-                    // Cria o chat principal
                     await setDoc(chatDocRef, {
                         type: 'dm',
                         members: [currentUser.uid, otherUserId],
                         lastMessage: '',
                         lastUpdate: serverTimestamp()
                     });
-                    // Cria os metadados para cada usuário
                     await setDoc(doc(db, "users", currentUser.uid, "userChats", chatId), { unreadCount: 0 });
                     await setDoc(doc(db, "users", otherUserId, "userChats", chatId), { unreadCount: 0 });
                 }
@@ -527,7 +575,12 @@
             document.getElementById('signup-view').classList.add('hidden');
             document.getElementById('login-view').classList.remove('hidden');
         });
-        document.getElementById('back-to-login-btn').addEventListener('click', () => showContainer('auth'));
+        document.getElementById('back-to-login-btn').addEventListener('click', () => {
+            showContainer('auth');
+            // Garante que a view de login é a padrão ao voltar
+            document.getElementById('signup-view').classList.add('hidden');
+            document.getElementById('login-view').classList.remove('hidden');
+        });
         
         const handleLogout = () => signOut(auth).catch(console.error);
         document.getElementById('logout-button').addEventListener('click', handleLogout);
@@ -547,7 +600,6 @@
             document.getElementById('chat-window').classList.remove('flex');
             document.getElementById('chat-list-column').classList.remove('mobile-hidden');
             activeChatId = null;
-            renderChatList();
         });
 
         const setupModal = (buttonId, modalId, closeButtonId) => {
@@ -564,14 +616,26 @@
 
         const setupOverlayModal = (buttonId, modalId, closeButtonId) => {
             const modal = document.getElementById(modalId);
-            document.getElementById(buttonId).addEventListener('click', () => modal.classList.remove('hidden'));
-            document.getElementById(closeButtonId).addEventListener('click', () => modal.classList.add('hidden'));
+            const openBtn = document.getElementById(buttonId);
+            const closeBtn = document.getElementById(closeButtonId);
+            if(openBtn) openBtn.addEventListener('click', () => modal.classList.remove('hidden'));
+            if(closeBtn) closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
         };
 
         setupOverlayModal('new-chat-button', 'new-chat-modal', 'cancel-new-chat');
         setupModal('profile-button', 'profile-modal', 'close-profile-modal');
         setupOverlayModal('new-group-button', 'new-group-modal', 'close-new-group-modal');
         setupOverlayModal('new-channel-button', 'new-channel-modal', 'close-new-channel-modal');
+        
+        document.getElementById('cancel-delete-chat').addEventListener('click', () => {
+            document.getElementById('delete-chat-modal').classList.add('hidden');
+        });
+        document.getElementById('confirm-delete-chat').addEventListener('click', () => {
+            const modal = document.getElementById('delete-chat-modal');
+            const chatId = modal.dataset.chatId;
+            deleteChat(chatId);
+            modal.classList.add('hidden');
+        });
 
     </script>
 </body>
