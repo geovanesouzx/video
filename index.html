@@ -1,370 +1,455 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { initializeApp } from 'firebase/app';
-import { 
-    getAuth, 
-    onAuthStateChanged, 
-    signInAnonymously,
-    signInWithCustomToken
-} from 'firebase/auth';
-import { 
-    getFirestore, 
-    collection, 
-    addDoc, 
-    doc, 
-    setDoc, 
-    getDoc,
-    onSnapshot,
-    serverTimestamp,
-    query,
-    where
-} from 'firebase/firestore';
-import { ArrowRight, Search, User, Clock, MessageSquare, CircleDashed, Phone, Users, Plus } from 'lucide-react';
-
-// --- Configuração do Firebase ---
-const firebaseConfig = typeof __firebase_config !== 'undefined' 
-    ? JSON.parse(__firebase_config) 
-    : { apiKey: "YOUR_API_KEY", authDomain: "YOUR_AUTH_DOMAIN", projectId: "YOUR_PROJECT_ID" };
-
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-whatsapp-clone';
-
-// --- Componentes da UI ---
-
-// Tela de Login para definir o nome de usuário
-const LoginScreen = ({ onLogin }) => {
-    const [username, setUsername] = useState('');
-    const [error, setError] = useState('');
-
-    const handleLogin = (e) => {
-        e.preventDefault();
-        if (username.trim().length < 3) {
-            setError('O nome de usuário deve ter pelo menos 3 caracteres.');
-            return;
-        }
-        setError('');
-        onLogin(username.trim());
-    };
-
-    return (
-        <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-900">
-            <div className="w-full max-w-sm p-8 bg-white dark:bg-gray-800 rounded-lg shadow-xl">
-                <h1 className="text-2xl font-bold text-center text-gray-800 dark:text-gray-200 mb-2">Bem-vindo!</h1>
-                <p className="text-center text-gray-500 dark:text-gray-400 mb-6">Crie seu nome de usuário para começar.</p>
-                <form onSubmit={handleLogin}>
-                    <input
-                        type="text"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        placeholder="Digite seu nome de usuário"
-                        className="w-full bg-gray-100 dark:bg-gray-700 rounded-md py-3 px-4 focus:outline-none text-gray-800 dark:text-gray-200 mb-4"
-                    />
-                    {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
-                    <button type="submit" className="w-full bg-green-500 hover:bg-green-600 text-white rounded-md py-3 font-semibold transition-colors">
-                        Entrar no Chat
-                    </button>
-                </form>
-            </div>
-        </div>
-    );
-};
-
-// Bolha de Mensagem
-const MessageBubble = ({ message, isSender }) => {
-    const alignment = isSender ? 'justify-end' : 'justify-start';
-    const colors = isSender ? 'bg-green-100 dark:bg-green-800' : 'bg-white dark:bg-gray-700';
-    const timestamp = message.timestamp?.toDate().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) || '';
-
-    return (
-        <div className={`flex ${alignment} mb-2`}>
-            <div className={`rounded-lg px-3 py-2 max-w-sm md:max-w-md lg:max-w-lg shadow ${colors}`}>
-                <p className="text-sm text-gray-800 dark:text-gray-200">{message.text}</p>
-                <p className={`text-xs text-right mt-1 ${isSender ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500'}`}>
-                    {timestamp}
-                </p>
-            </div>
-        </div>
-    );
-};
-
-// Janela de Chat
-const ChatWindow = ({ chatPartner, currentUser, messages, onSendMessage }) => {
-    const [newMessage, setNewMessage] = useState('');
-    const messagesEndRef = useRef(null);
-
-    useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [messages]);
-
-    const handleSend = (e) => {
-        e.preventDefault();
-        if (newMessage.trim()) {
-            onSendMessage(newMessage);
-            setNewMessage('');
-        }
-    };
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clone do WhatsApp</title>
     
-    if (!chatPartner) {
-        return (
-            <div className="flex-1 flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-800 text-center p-4">
-                 <div className="w-24 h-24 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
-                    <MessageSquare size={48} className="text-gray-400 dark:text-gray-500" />
-                </div>
-                <h2 className="text-xl font-medium text-gray-700 dark:text-gray-300">Selecione uma conversa</h2>
-                <p className="text-gray-500 dark:text-gray-400 mt-2">Comece a conversar com os usuários disponíveis.</p>
-            </div>
-        );
-    }
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
 
-    const sortedMessages = [...messages].sort((a, b) => (a.timestamp?.toMillis() || 0) - (b.timestamp?.toMillis() || 0));
+    <style>
+        /* Estilo para garantir que o layout ocupe toda a altura */
+        body, html {
+            height: 100%;
+            margin: 0;
+            font-family: sans-serif;
+            background-color: #f0f2f5;
+        }
+        .dark body, .dark html {
+             background-color: #111b21;
+        }
+        /* Esconder elementos por padrão */
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900">
 
-    return (
-        <div className="flex-1 flex flex-col bg-gray-100 dark:bg-gray-900">
-            <header className="bg-white dark:bg-gray-800 p-3 shadow-sm flex items-center z-10">
-                <div className="w-10 h-10 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center mr-3">
-                    <User className="text-white dark:text-gray-300" />
-                </div>
-                <div>
-                    <h2 className="font-semibold text-gray-800 dark:text-gray-200">{chatPartner.username || chatPartner.id.substring(0,12)}</h2>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Online</p>
-                </div>
-            </header>
-            <main className="flex-1 overflow-y-auto p-4 md:p-6">
-                {sortedMessages.map(msg => <MessageBubble key={msg.id} message={msg} isSender={msg.senderId === currentUser.uid} />)}
-                <div ref={messagesEndRef} />
-            </main>
-            <footer className="bg-white dark:bg-gray-800 p-3">
-                <form onSubmit={handleSend} className="flex items-center">
-                    <input type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="Digite uma mensagem..." className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-full py-2 px-4 focus:outline-none text-gray-800 dark:text-gray-200"/>
-                    <button type="submit" className="bg-green-500 hover:bg-green-600 text-white rounded-full p-3 ml-3 transition-colors"><ArrowRight size={20} /></button>
-                </form>
-            </footer>
+    <!-- Tela de Carregamento -->
+    <div id="loading-screen" class="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <div class="flex items-center space-x-2 text-gray-500">
+            <svg class="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span>Carregando...</span>
         </div>
-    );
-};
-
-// Lista de Conversas
-const ChatsList = ({ users, onSelectChat, selectedChatId }) => {
-    const [searchTerm, setSearchTerm] = useState('');
-    const filteredUsers = users.filter(user => user.username && user.username.toLowerCase().includes(searchTerm.toLowerCase()));
-
-    return (
-        <div className="h-full flex flex-col">
-            <header className="p-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-                <div className="relative">
-                    <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input type="text" placeholder="Pesquisar conversas..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-gray-100 dark:bg-gray-700 rounded-full py-2 pl-10 pr-4 focus:outline-none text-gray-800 dark:text-gray-200"/>
-                </div>
-            </header>
-            <div className="flex-1 overflow-y-auto">
-                {filteredUsers.length > 0 ? (
-                    filteredUsers.map(user => (
-                        <div key={user.id} onClick={() => onSelectChat(user)} className={`flex items-center p-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 ${selectedChatId === user.id ? 'bg-green-50 dark:bg-green-900/50' : ''}`}>
-                            <div className="w-12 h-12 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center mr-3"><User className="text-white dark:text-gray-300" /></div>
-                            <div className="flex-1">
-                                <h3 className="font-semibold text-gray-800 dark:text-gray-200">{user.username}</h3>
-                                <p className="text-sm text-gray-500 dark:text-gray-400">Clique para conversar</p>
-                            </div>
-                        </div>
-                    ))
-                ) : (
-                    <div className="p-4 text-center text-gray-500 dark:text-gray-400">
-                        <p>Nenhum usuário encontrado.</p>
-                        <p className="text-xs mt-2">Compartilhe o link para que outros entrem.</p>
-                    </div>
-                )}
-            </div>
-             <div className="p-4">
-                <button className="w-14 h-14 bg-green-500 hover:bg-green-600 text-white rounded-full shadow-lg flex items-center justify-center ml-auto">
-                    <Plus size={24} />
-                </button>
-            </div>
-        </div>
-    );
-};
-
-// Componente Placeholder para abas futuras
-const PlaceholderTab = ({ title, icon: Icon }) => (
-    <div className="flex-1 flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-800 text-center p-4 h-full">
-        <div className="w-24 h-24 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
-            <Icon size={48} className="text-gray-400 dark:text-gray-500" />
-        </div>
-        <h2 className="text-xl font-medium text-gray-700 dark:text-gray-300">{title}</h2>
-        <p className="text-gray-500 dark:text-gray-400 mt-2">Esta funcionalidade estará disponível em breve.</p>
     </div>
-);
 
-// Layout Principal com Abas
-const MainAppLayout = ({ user, db }) => {
-    const [users, setUsers] = useState([]);
-    const [selectedChat, setSelectedChat] = useState(null);
-    const [messages, setMessages] = useState([]);
-    const [activeTab, setActiveTab] = useState('chats');
-
-    // Escuta de usuários
-    useEffect(() => {
-        if (!db || !user) return;
-        const usersCollectionRef = collection(db, `artifacts/${appId}/public/data/users`);
-        const q = query(usersCollectionRef, where("id", "!=", user.uid));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            setUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        });
-        return () => unsubscribe();
-    }, [db, user]);
-
-    // Escuta de mensagens
-    useEffect(() => {
-        if (!db || !user || !selectedChat) { setMessages([]); return; };
-        const chatId = [user.uid, selectedChat.id].sort().join('_');
-        const messagesRef = collection(db, `artifacts/${appId}/public/data/chats/${chatId}/messages`);
-        const unsubscribe = onSnapshot(messagesRef, (snapshot) => {
-            setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        });
-        return () => unsubscribe();
-    }, [db, user, selectedChat]);
-
-    const handleSendMessage = async (text) => {
-        if (!db || !user || !selectedChat) return;
-        const chatId = [user.uid, selectedChat.id].sort().join('_');
-        const messagesRef = collection(db, `artifacts/${appId}/public/data/chats/${chatId}/messages`);
-        await addDoc(messagesRef, { text, senderId: user.uid, receiverId: selectedChat.id, timestamp: serverTimestamp() });
-    };
-
-    const TabButton = ({ id, label, icon: Icon }) => (
-        <button onClick={() => setActiveTab(id)} className={`flex-1 py-3 text-sm font-medium transition-colors ${activeTab === id ? 'text-green-500 border-b-2 border-green-500' : 'text-gray-500 dark:text-gray-400'}`}>
-            <Icon className="mx-auto mb-1" />
-            {label}
-        </button>
-    );
-
-    const renderContent = () => {
-        switch(activeTab) {
-            case 'chats':
-                return (
-                    <div className="w-full h-full flex flex-col md:flex-row shadow-2xl">
-                        <div className="w-full md:w-1/3 lg:w-1/4 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
-                           <ChatsList users={users} onSelectChat={setSelectedChat} selectedChatId={selectedChat?.id} />
-                        </div>
-                        <div className="flex-1">
-                           <ChatWindow chatPartner={selectedChat} currentUser={user} messages={messages} onSendMessage={handleSendMessage} />
-                        </div>
-                    </div>
-                );
-            case 'status':
-                return <PlaceholderTab title="Status" icon={CircleDashed} />;
-            case 'calls':
-                return <PlaceholderTab title="Chamadas" icon={Phone} />;
-            case 'groups':
-                return <PlaceholderTab title="Grupos" icon={Users} />;
-            default:
-                return null;
-        }
-    }
-
-    return (
-        <div className="h-screen w-screen flex flex-col font-sans bg-gray-200 dark:bg-gray-900 text-sm">
-            <header className="bg-white dark:bg-gray-800 shadow-md z-20">
-                <div className="flex justify-between items-center p-3">
-                    <h1 className="text-xl font-bold text-green-500">Chat App</h1>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                        Logado como: <span className="font-semibold">{user.username}</span>
-                    </div>
-                </div>
-                <nav className="flex">
-                    <TabButton id="chats" label="Conversas" icon={MessageSquare} />
-                    <TabButton id="status" label="Status" icon={CircleDashed} />
-                    <TabButton id="calls" label="Chamadas" icon={Phone} />
-                    <TabButton id="groups" label="Grupos" icon={Users} />
-                </nav>
-            </header>
-            <main className="flex-1 overflow-hidden">
-                {renderContent()}
-            </main>
+    <!-- Tela de Login -->
+    <div id="login-screen" class="hidden h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <div class="w-full max-w-sm p-8 bg-white dark:bg-gray-800 rounded-lg shadow-xl">
+            <h1 class="text-2xl font-bold text-center text-gray-800 dark:text-gray-200 mb-2">Bem-vindo!</h1>
+            <p class="text-center text-gray-500 dark:text-gray-400 mb-6">Crie seu nome de usuário para começar.</p>
+            <form id="login-form">
+                <input id="username-input" type="text" placeholder="Digite seu nome de usuário" class="w-full bg-gray-100 dark:bg-gray-700 rounded-md py-3 px-4 focus:outline-none text-gray-800 dark:text-gray-200 mb-4"/>
+                <p id="login-error" class="text-red-500 text-sm mb-4 hidden"></p>
+                <button type="submit" class="w-full bg-green-500 hover:bg-green-600 text-white rounded-md py-3 font-semibold transition-colors">
+                    Entrar no Chat
+                </button>
+            </form>
         </div>
-    );
-};
+    </div>
 
-// Componente Principal
-export default function App() {
-    const [auth, setAuth] = useState(null);
-    const [db, setDb] = useState(null);
-    const [user, setUser] = useState(null); // { uid, username }
-    const [isLoading, setIsLoading] = useState(true);
+    <!-- Aplicativo Principal -->
+    <div id="main-app" class="hidden h-screen w-screen flex-col font-sans bg-gray-200 dark:bg-gray-900 text-sm">
+        <header class="bg-white dark:bg-gray-800 shadow-md z-20 flex-shrink-0">
+            <div class="flex justify-between items-center p-3">
+                <h1 class="text-xl font-bold text-green-500">Chat App</h1>
+                <div class="text-xs text-gray-500 dark:text-gray-400">
+                    Logado como: <span id="current-username" class="font-semibold"></span>
+                </div>
+            </div>
+            <nav id="tab-navigation" class="flex">
+                <button data-tab="chats" class="tab-button flex-1 py-3 text-sm font-medium transition-colors text-green-500 border-b-2 border-green-500">
+                    <i data-lucide="message-square" class="mx-auto mb-1"></i>Conversas
+                </button>
+                <button data-tab="status" class="tab-button flex-1 py-3 text-sm font-medium transition-colors text-gray-500 dark:text-gray-400">
+                    <i data-lucide="circle-dashed" class="mx-auto mb-1"></i>Status
+                </button>
+                <button data-tab="calls" class="tab-button flex-1 py-3 text-sm font-medium transition-colors text-gray-500 dark:text-gray-400">
+                    <i data-lucide="phone" class="mx-auto mb-1"></i>Chamadas
+                </button>
+                <button data-tab="groups" class="tab-button flex-1 py-3 text-sm font-medium transition-colors text-gray-500 dark:text-gray-400">
+                    <i data-lucide="users" class="mx-auto mb-1"></i>Grupos
+                </button>
+            </nav>
+        </header>
+        <main class="flex-1 overflow-hidden">
+            <!-- Conteúdo da Aba de Conversas -->
+            <div id="tab-content-chats" class="w-full h-full flex flex-col md:flex-row shadow-2xl">
+                <div class="w-full md:w-1/3 lg:w-1/4 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+                    <header class="p-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+                        <div class="relative">
+                            <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4"></i>
+                            <input id="search-users-input" type="text" placeholder="Pesquisar conversas..." class="w-full bg-gray-100 dark:bg-gray-700 rounded-full py-2 pl-10 pr-4 focus:outline-none text-gray-800 dark:text-gray-200"/>
+                        </div>
+                    </header>
+                    <div id="users-list" class="flex-1 overflow-y-auto">
+                        <!-- Lista de usuários será inserida aqui -->
+                    </div>
+                </div>
+                <div id="chat-window" class="flex-1 flex flex-col bg-gray-100 dark:bg-gray-900">
+                    <!-- A janela de chat ou a tela de boas-vindas será inserida aqui -->
+                </div>
+            </div>
+            <!-- Conteúdo das outras abas (placeholders) -->
+            <div id="tab-content-status" class="hidden h-full"></div>
+            <div id="tab-content-calls" class="hidden h-full"></div>
+            <div id="tab-content-groups" class="hidden h-full"></div>
+        </main>
+    </div>
 
-    // Inicialização do Firebase
-    useEffect(() => {
+    <!-- Firebase e Lógica do App -->
+    <script type="module">
+        // Importações do Firebase
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, doc, setDoc, getDoc, onSnapshot, serverTimestamp, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- Configuração do Firebase ("A Chave") ---
+        // Se estiver usando fora do ambiente do Canvas, substitua pelos seus próprios valores.
+        const firebaseConfig = typeof __firebase_config !== 'undefined'
+            ? JSON.parse(__firebase_config)
+            : {
+                apiKey: "SUA_API_KEY",
+                authDomain: "SEU_AUTH_DOMAIN",
+                projectId: "SEU_PROJECT_ID",
+                storageBucket: "SEU_STORAGE_BUCKET",
+                messagingSenderId: "SEU_MESSAGING_SENDER_ID",
+                appId: "SEU_APP_ID"
+            };
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-whatsapp-clone-html';
+
+        // Inicialização do Firebase
         const app = initializeApp(firebaseConfig);
-        const authInstance = getAuth(app);
-        const dbInstance = getFirestore(app);
-        setAuth(authInstance);
-        setDb(dbInstance);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
 
-        const unsubscribeAuth = onAuthStateChanged(authInstance, async (firebaseUser) => {
-            if (firebaseUser) {
-                const userRef = doc(dbInstance, `artifacts/${appId}/public/data/users`, firebaseUser.uid);
-                const userSnap = await getDoc(userRef);
-                if (userSnap.exists() && userSnap.data().username) {
-                    setUser({ uid: firebaseUser.uid, ...userSnap.data() });
-                } else {
-                    setUser({ uid: firebaseUser.uid, username: null }); // Usuário autenticado, mas sem perfil
-                }
+        // Variáveis de estado do aplicativo
+        let currentUser = null;
+        let selectedChatPartner = null;
+        let unsubscribeUsers = () => {};
+        let unsubscribeMessages = () => {};
+
+        // Referências a elementos do DOM
+        const loadingScreen = document.getElementById('loading-screen');
+        const loginScreen = document.getElementById('login-screen');
+        const mainApp = document.getElementById('main-app');
+        const loginForm = document.getElementById('login-form');
+        const usernameInput = document.getElementById('username-input');
+        const loginError = document.getElementById('login-error');
+        const currentUsernameSpan = document.getElementById('current-username');
+        const usersListDiv = document.getElementById('users-list');
+        const chatWindowDiv = document.getElementById('chat-window');
+        const tabNavigation = document.getElementById('tab-navigation');
+
+        // --- Funções de Renderização ---
+
+        const renderWelcomeScreen = () => {
+            chatWindowDiv.innerHTML = `
+                <div class="flex-1 flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-800 text-center p-4">
+                    <div class="w-24 h-24 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
+                        <i data-lucide="message-square" class="text-gray-400 dark:text-gray-500 w-12 h-12"></i>
+                    </div>
+                    <h2 class="text-xl font-medium text-gray-700 dark:text-gray-300">Selecione uma conversa</h2>
+                    <p class="text-gray-500 dark:text-gray-400 mt-2">Comece a conversar com os usuários disponíveis.</p>
+                </div>`;
+            lucide.createIcons();
+        };
+
+        const renderChatWindow = (partner) => {
+            chatWindowDiv.innerHTML = `
+                <header class="bg-white dark:bg-gray-800 p-3 shadow-sm flex items-center z-10 flex-shrink-0">
+                    <div class="w-10 h-10 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center mr-3">
+                        <i data-lucide="user" class="text-white dark:text-gray-300"></i>
+                    </div>
+                    <div>
+                        <h2 class="font-semibold text-gray-800 dark:text-gray-200">${partner.username}</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Online</p>
+                    </div>
+                </header>
+                <main id="messages-container" class="flex-1 overflow-y-auto p-4 md:p-6">
+                    <!-- Mensagens serão inseridas aqui -->
+                </main>
+                <footer class="bg-white dark:bg-gray-800 p-3 flex-shrink-0">
+                    <form id="message-form" class="flex items-center">
+                        <input id="message-input" type="text" placeholder="Digite uma mensagem..." class="flex-1 bg-gray-100 dark:bg-gray-700 rounded-full py-2 px-4 focus:outline-none text-gray-800 dark:text-gray-200"/>
+                        <button type="submit" class="bg-green-500 hover:bg-green-600 text-white rounded-full p-3 ml-3 transition-colors">
+                            <i data-lucide="arrow-right" class="w-5 h-5"></i>
+                        </button>
+                    </form>
+                </footer>`;
+            lucide.createIcons();
+
+            // Adicionar event listener para o formulário de mensagem
+            document.getElementById('message-form').addEventListener('submit', handleSendMessage);
+        };
+        
+        const renderMessages = (messages) => {
+            const messagesContainer = document.getElementById('messages-container');
+            if (!messagesContainer) return;
+
+            const sortedMessages = messages.sort((a, b) => (a.timestamp?.toMillis() || 0) - (b.timestamp?.toMillis() || 0));
+
+            messagesContainer.innerHTML = sortedMessages.map(msg => {
+                const isSender = msg.senderId === currentUser.uid;
+                const alignment = isSender ? 'justify-end' : 'justify-start';
+                const colors = isSender ? 'bg-green-100 dark:bg-green-800' : 'bg-white dark:bg-gray-700';
+                const timestamp = msg.timestamp?.toDate().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) || '';
+
+                return `
+                    <div class="flex ${alignment} mb-2">
+                        <div class="rounded-lg px-3 py-2 max-w-sm md:max-w-md lg:max-w-lg shadow ${colors}">
+                            <p class="text-sm text-gray-800 dark:text-gray-200">${msg.text}</p>
+                            <p class="text-xs text-right mt-1 ${isSender ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500'}">
+                                ${timestamp}
+                            </p>
+                        </div>
+                    </div>`;
+            }).join('');
+            
+            // Scroll para a última mensagem
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        };
+
+        const renderUsersList = (users) => {
+            if (users.length > 0) {
+                 usersListDiv.innerHTML = users.map(user => `
+                    <div data-userid="${user.id}" class="user-item flex items-center p-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 ${selectedChatPartner?.id === user.id ? 'bg-green-50 dark:bg-green-900/50' : ''}">
+                        <div class="w-12 h-12 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center mr-3">
+                           <i data-lucide="user" class="text-white dark:text-gray-300"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="font-semibold text-gray-800 dark:text-gray-200">${user.username}</h3>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Clique para conversar</p>
+                        </div>
+                    </div>
+                `).join('');
             } else {
-                setUser(null);
-                // Tenta fazer login se não houver usuário
-                try {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(authInstance, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(authInstance);
-                    }
-                } catch (error) {
-                    console.error("Falha no login anônimo automático:", error);
-                }
+                usersListDiv.innerHTML = `
+                    <div class="p-4 text-center text-gray-500 dark:text-gray-400">
+                        <p>Nenhum usuário encontrado.</p>
+                        <p class="text-xs mt-2">Compartilhe o link para que outros entrem.</p>
+                    </div>`;
             }
-            setIsLoading(false);
-        });
+            lucide.createIcons();
 
-        return () => unsubscribeAuth();
-    }, []);
+            // Adicionar event listeners para os itens da lista de usuários
+            document.querySelectorAll('.user-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const userId = item.getAttribute('data-userid');
+                    const user = users.find(u => u.id === userId);
+                    if (user) {
+                        handleSelectChat(user);
+                    }
+                });
+            });
+        };
+        
+        const renderPlaceholderTab = (title, icon) => {
+            return `
+                <div class="flex-1 flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-800 text-center p-4 h-full">
+                    <div class="w-24 h-24 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
+                        <i data-lucide="${icon}" class="text-gray-400 dark:text-gray-500 w-12 h-12"></i>
+                    </div>
+                    <h2 class="text-xl font-medium text-gray-700 dark:text-gray-300">${title}</h2>
+                    <p class="text-gray-500 dark:text-gray-400 mt-2">Esta funcionalidade estará disponível em breve.</p>
+                </div>`;
+        };
 
-    const handleSetUsername = async (username) => {
-        if (!db || !user || !user.uid) return;
-        const userRef = doc(db, `artifacts/${appId}/public/data/users`, user.uid);
-        try {
-            await setDoc(userRef, { 
-                id: user.uid, 
-                username: username,
-                lastSeen: serverTimestamp() 
-            }, { merge: true });
-            setUser(prev => ({ ...prev, username }));
-        } catch (error) {
-            console.error("Erro ao salvar nome de usuário:", error);
+        // --- Lógica do Aplicativo ---
+
+        const handleSelectChat = (partner) => {
+            selectedChatPartner = partner;
+            renderUsersList(Array.from(usersListDiv.querySelectorAll('.user-item')).map(el => ({
+                id: el.dataset.userid,
+                username: el.querySelector('h3').textContent
+            }))); // Re-render a lista para destacar o selecionado
+            renderChatWindow(partner);
+            listenForMessages();
+        };
+        
+        const handleSendMessage = async (e) => {
+            e.preventDefault();
+            const messageInput = document.getElementById('message-input');
+            const text = messageInput.value.trim();
+
+            if (!text || !currentUser || !selectedChatPartner) return;
+            
+            const chatId = [currentUser.uid, selectedChatPartner.id].sort().join('_');
+            const messagesRef = collection(db, `artifacts/${appId}/public/data/chats/${chatId}/messages`);
+            
+            try {
+                await addDoc(messagesRef, {
+                    text: text,
+                    senderId: currentUser.uid,
+                    receiverId: selectedChatPartner.id,
+                    timestamp: serverTimestamp()
+                });
+                messageInput.value = '';
+            } catch (error) {
+                console.error("Erro ao enviar mensagem:", error);
+            }
+        };
+
+        const handleSetUsername = async (username) => {
+            if (!db || !currentUser || !currentUser.uid) return;
+            const userRef = doc(db, `artifacts/${appId}/public/data/users`, currentUser.uid);
+            try {
+                await setDoc(userRef, {
+                    id: currentUser.uid,
+                    username: username,
+                    lastSeen: serverTimestamp()
+                }, { merge: true });
+                currentUser.username = username; // Atualiza o estado local
+                showMainApp();
+            } catch (error) {
+                console.error("Erro ao salvar nome de usuário:", error);
+                loginError.textContent = "Não foi possível salvar o nome de usuário.";
+                loginError.classList.remove('hidden');
+            }
+        };
+        
+        const showLoginScreen = () => {
+            loadingScreen.classList.add('hidden');
+            mainApp.classList.add('hidden');
+            loginScreen.classList.remove('hidden');
+            loginScreen.classList.add('flex');
+        };
+
+        const showMainApp = () => {
+            currentUsernameSpan.textContent = currentUser.username;
+            loadingScreen.classList.add('hidden');
+            loginScreen.classList.add('hidden');
+            loginScreen.classList.remove('flex');
+            mainApp.classList.remove('hidden');
+            mainApp.classList.add('flex');
+            renderWelcomeScreen();
+            listenForUsers();
+        };
+        
+        // --- Listeners do Firebase ---
+
+        function listenForUsers() {
+            unsubscribeUsers(); // Cancela listener anterior
+            const usersCollectionRef = collection(db, `artifacts/${appId}/public/data/users`);
+            const q = query(usersCollectionRef, where("id", "!=", currentUser.uid));
+            
+            unsubscribeUsers = onSnapshot(q, (snapshot) => {
+                const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderUsersList(users);
+            }, (error) => {
+                console.error("Erro ao buscar usuários:", error);
+            });
         }
-    };
 
-    if (isLoading) {
-        return (
-            <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-900">
-                <div className="flex items-center space-x-2 text-gray-500">
-                    <Clock className="animate-spin" />
-                    <span>Carregando...</span>
-                </div>
-            </div>
-        );
-    }
+        function listenForMessages() {
+            unsubscribeMessages(); // Cancela listener anterior
+            if (!currentUser || !selectedChatPartner) return;
+            
+            const chatId = [currentUser.uid, selectedChatPartner.id].sort().join('_');
+            const messagesRef = collection(db, `artifacts/${appId}/public/data/chats/${chatId}/messages`);
+            
+            unsubscribeMessages = onSnapshot(messagesRef, (snapshot) => {
+                const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderMessages(messages);
+            }, (error) => {
+                console.error("Erro ao buscar mensagens:", error);
+            });
+        }
 
-    if (!user) {
-         // Isso pode ser um estado de erro ou um redirecionamento
-        return (
-            <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-900">
-                <div className="flex items-center space-x-2 text-red-500">
-                    <span>Falha na autenticação. Por favor, recarregue a página.</span>
-                </div>
-            </div>
-        );
-    }
-    
-    if (!user.username) {
-        return <LoginScreen onLogin={handleSetUsername} />;
-    }
+        // --- Inicialização e Event Listeners ---
 
-    return <MainAppLayout user={user} db={db} />;
-}
+        window.onload = () => {
+            lucide.createIcons(); // Renderiza ícones iniciais
+
+            // Listener para o formulário de login
+            loginForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const username = usernameInput.value.trim();
+                if (username.length < 3) {
+                    loginError.textContent = 'O nome de usuário deve ter pelo menos 3 caracteres.';
+                    loginError.classList.remove('hidden');
+                    return;
+                }
+                loginError.classList.add('hidden');
+                handleSetUsername(username);
+            });
+            
+            // Listener para a navegação por abas
+            tabNavigation.addEventListener('click', (e) => {
+                const button = e.target.closest('.tab-button');
+                if (!button) return;
+                
+                const tabId = button.dataset.tab;
+                
+                // Atualiza botões
+                document.querySelectorAll('.tab-button').forEach(btn => {
+                    btn.classList.remove('text-green-500', 'border-green-500');
+                    btn.classList.add('text-gray-500', 'dark:text-gray-400');
+                });
+                button.classList.add('text-green-500', 'border-green-500');
+                button.classList.remove('text-gray-500', 'dark:text-gray-400');
+
+                // Atualiza conteúdo
+                document.querySelectorAll('#main-app > main > div').forEach(content => {
+                    content.classList.add('hidden');
+                });
+                
+                const activeContent = document.getElementById(`tab-content-${tabId}`);
+                if (activeContent) {
+                    activeContent.classList.remove('hidden');
+                    // Renderiza conteúdo placeholder se necessário
+                    if (tabId !== 'chats' && activeContent.innerHTML === '') {
+                        const placeholders = {
+                            status: { title: 'Status', icon: 'circle-dashed' },
+                            calls: { title: 'Chamadas', icon: 'phone' },
+                            groups: { title: 'Grupos', icon: 'users' }
+                        };
+                        activeContent.innerHTML = renderPlaceholderTab(placeholders[tabId].title, placeholders[tabId].icon);
+                        lucide.createIcons();
+                    }
+                }
+            });
+
+            // Gerenciamento de Autenticação
+            onAuthStateChanged(auth, async (firebaseUser) => {
+                if (firebaseUser) {
+                    const userRef = doc(db, `artifacts/${appId}/public/data/users`, firebaseUser.uid);
+                    const userSnap = await getDoc(userRef);
+                    
+                    currentUser = { uid: firebaseUser.uid, username: null };
+
+                    if (userSnap.exists() && userSnap.data().username) {
+                        currentUser.username = userSnap.data().username;
+                        showMainApp();
+                    } else {
+                        showLoginScreen();
+                    }
+                } else {
+                    // Tenta fazer login anônimo se não estiver autenticado
+                    try {
+                        const authToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                        if (authToken) {
+                            await signInWithCustomToken(auth, authToken);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+                    } catch (error) {
+                        console.error("Falha no login:", error);
+                        loadingScreen.innerHTML = '<span>Falha na autenticação. Por favor, recarregue a página.</span>';
+                    }
+                }
+            });
+        };
+    </script>
+
+</body>
+</html>
