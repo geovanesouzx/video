@@ -56,7 +56,11 @@
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         #modal-backdrop { animation: fadeIn 0.2s ease-out; }
-        #modal-content { animation: fadeInUp 0.3s ease-out; }
+        #modal-content { 
+            animation: fadeInUp 0.3s ease-out;
+            max-height: 90vh; /* Garante que o modal não seja maior que a tela */
+            overflow-y: auto; /* Adiciona scroll se o conteúdo for maior */
+        }
     </style>
 </head>
 <body class="bg-bg-light dark:bg-bg-dark text-text-primary-light dark:text-text-primary-dark h-screen overflow-hidden">
@@ -253,8 +257,8 @@
 
         function renderModal(title, content) {
             const modalHTML = `
-                <div id="modal-backdrop" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center">
-                    <div id="modal-content" class="bg-sidebar-light dark:bg-sidebar-dark rounded-lg shadow-xl p-6 w-full max-w-md m-4">
+                <div id="modal-backdrop" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4">
+                    <div id="modal-content" class="bg-sidebar-light dark:bg-sidebar-dark rounded-lg shadow-xl p-6 w-full max-w-md">
                         <div class="flex justify-between items-center mb-4">
                             <h3 class="text-xl font-semibold">${title}</h3>
                             <button id="modal-close-button" class="p-1 rounded-full hover:bg-hover-light dark:hover:bg-hover-dark"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
@@ -291,7 +295,12 @@
                     state.userData = userDocSnap.data();
                 } else {
                     const newUsername = user.email.split('@')[0];
-                    state.userData = { uid: user.uid, email: user.email, username: newUsername };
+                    state.userData = { 
+                        uid: user.uid, 
+                        email: user.email, 
+                        username: newUsername,
+                        username_lowercase: newUsername.toLowerCase() // FIX: Store lowercase username
+                    };
                     await setDoc(userDocRef, { ...state.userData, createdAt: serverTimestamp() });
                 }
                 await setupMainApp();
@@ -317,7 +326,14 @@
         function listenForUserChats() {
             const userChatsRef = collection(db, `users/${state.currentUser.uid}/userChats`);
             state.unsubscribeUserChats = onSnapshot(userChatsRef, async (snapshot) => {
-                const chatPromises = snapshot.docs.map(doc => getDoc(doc.data().ref));
+                const validDocs = snapshot.docs.filter(doc => doc.data() && doc.data().ref);
+
+                if (validDocs.length === 0) {
+                    renderChatList([]);
+                    return;
+                }
+
+                const chatPromises = validDocs.map(doc => getDoc(doc.data().ref));
                 const chatDocs = await Promise.all(chatPromises);
                 
                 const chatsData = [];
@@ -391,7 +407,7 @@
             
             state.unsubscribeMessages = onSnapshot(messagesRef, (snapshot) => {
                 if (!messageListEl) return;
-                const messages = snapshot.docs.map(doc => doc.data()).sort((a, b) => a.timestamp?.seconds - b.timestamp?.seconds);
+                const messages = snapshot.docs.map(doc => doc.data()).sort((a, b) => (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0));
                 messageListEl.innerHTML = '';
                 messages.forEach(msg => {
                     const isSent = msg.senderId === state.currentUser.uid;
@@ -484,11 +500,19 @@
 
         async function handleSearchUsers(searchTerm) {
             const resultsContainer = document.getElementById('user-search-results');
-            if (!searchTerm.trim()) { resultsContainer.innerHTML = ''; return; }
+            if (!searchTerm.trim()) { 
+                resultsContainer.innerHTML = '<p class="text-center text-text-secondary-light dark:text-text-secondary-dark">Digite para procurar usuários.</p>';
+                return; 
+            }
             resultsContainer.innerHTML = '<p class="text-center">Procurando...</p>';
 
             try {
-                const q = query(collection(db, "users"), where("username", ">=", searchTerm), where("username", "<=", searchTerm + '\uf8ff'));
+                // FIX: Search against the lowercase field
+                const lowerCaseSearchTerm = searchTerm.toLowerCase();
+                const q = query(collection(db, "users"), 
+                    where("username_lowercase", ">=", lowerCaseSearchTerm), 
+                    where("username_lowercase", "<=", lowerCaseSearchTerm + '\uf8ff'));
+                
                 const querySnapshot = await getDocs(q);
                 const users = querySnapshot.docs.map(doc => doc.data()).filter(user => user.uid !== state.currentUser.uid);
                 
